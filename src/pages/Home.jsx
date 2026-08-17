@@ -75,23 +75,23 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
       image: '/hero_slide_1.jpg',
       badge: '#1 Rated Local Vehicle Rental Network',
       title: 'Rent Premium Vehicles',
-      highlightTitle: 'For Local Travel & Rentals',
-      description: 'Book verified 2-wheelers, 3-wheeler autos, and 4-wheeler cars for instant local travel with transparent per-KM pricing & RTO compliance.'
+      highlightTitle: 'For Travel & Goods Carrying',
+      description: 'Book verified 4-wheeler cars and commercial goods trucks for instant local travel & logistics with transparent per-KM pricing & RTO compliance.'
     },
     {
       id: 2,
       image: '/hero_slide_2.jpg',
       badge: '500+ Verified Fleet Vehicles',
       title: 'Inspected & Sanitized',
-      highlightTitle: 'Bikes, Autos & Cars Available',
-      description: 'Clean, sanitized, and fully insured vehicles available across Coimbatore, Erode, Tiruppur, Salem, Ooty, and surrounding hubs.'
+      highlightTitle: 'Cars & Commercial Trucks Available',
+      description: 'Clean, sanitized, and fully insured 4-wheeler cars and heavy cargo trucks available across Coimbatore, Erode, Tiruppur, Salem, Ooty, and surrounding hubs.'
     },
     {
       id: 3,
       image: '/hero_slide_3.jpg',
       badge: 'Transparent Per-KM Rates',
       title: 'Instant Booking & Pickup',
-      highlightTitle: '₹8/km Bikes • ₹10/km Autos • ₹12/km Cars',
+      highlightTitle: '₹12/km Cars • ₹15/km Goods Trucks',
       description: 'Zero hidden surge pricing. Calculate exact route distance and book with 2-step mobile OTP verification.'
     }
   ];
