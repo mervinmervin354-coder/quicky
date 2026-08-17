@@ -418,7 +418,7 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                     }}
                     className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl cursor-pointer transition-colors"
                   >
-                    View Specs
+                    View Details
                   </button>
 
                   <button
