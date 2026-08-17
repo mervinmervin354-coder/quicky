@@ -51,7 +51,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
   const [validationError, setValidationError] = useState('');
 
   // Platform Fee constant
-  const platformFee = 49;
+  const platformFee = 7;
 
   // Calculations
   const distance = useMemo(() => {
