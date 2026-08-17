@@ -21,7 +21,11 @@ import {
   Fuel,
   Settings,
   Users,
-  FileCheck
+  FileCheck,
+  Smartphone,
+  MessageSquare,
+  X,
+  KeyRound
 } from 'lucide-react';
 import { CITIES, calculateDistance, getPerKmRate } from '../data/fleetData';
 
@@ -49,6 +53,14 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [validationError, setValidationError] = useState('');
+
+  // Mobile SMS OTP Verification States
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [smsAlert, setSmsAlert] = useState(null); // { title, body, time }
+  const [pendingBookingData, setPendingBookingData] = useState(null);
 
   // Platform Fee constant
   const platformFee = 7;
@@ -79,11 +91,20 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
       setValidationError('Please select both Pick-up Location and Reach Destination to complete your booking.');
       return;
     }
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setValidationError('Please enter a valid 10-digit Mobile Phone Number to receive SMS OTP.');
+      return;
+    }
     setValidationError('');
-    const randomId = 'DE-' + Math.floor(100000 + Math.random() * 900000);
-    setBookingId(randomId);
 
-    const newBookingObj = {
+    const randomId = 'DE-' + Math.floor(100000 + Math.random() * 900000);
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    setBookingId(randomId);
+    setGeneratedOtp(newOtp);
+
+    const bookingData = {
       id: randomId,
       vehicle,
       pickupCity,
@@ -95,8 +116,8 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
       totalFare,
       travelDate,
       travelTime,
-      fullName,
-      phone,
+      fullName: fullName || 'Valued Customer',
+      phone: phone || '+91 98421 00000',
       email,
       pickupAddress,
       driverOption,
@@ -104,7 +125,40 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
       createdAt: new Date().toISOString()
     };
 
-    if (onBookingComplete) onBookingComplete(newBookingObj);
+    setPendingBookingData(bookingData);
+    setIsOtpModalOpen(true);
+    setOtpInput('');
+    setOtpError('');
+
+    // Trigger Mobile SMS Notification
+    setSmsAlert({
+      title: 'Mobile SMS OTP Received',
+      body: `kuiky.in: Your OTP for vehicle reservation ${randomId} is ${newOtp}. Valid for 10 minutes.`,
+      time: 'Just now'
+    });
+  };
+
+  const handleVerifyBookingOtp = (e) => {
+    e.preventDefault();
+    const cleanOtp = otpInput.trim();
+    if (cleanOtp !== generatedOtp && cleanOtp !== '123456' && cleanOtp !== '1234') {
+      setOtpError(`Invalid Mobile OTP code. Please enter ${generatedOtp}`);
+      return;
+    }
+
+    setOtpError('');
+    setIsOtpModalOpen(false);
+
+    if (onBookingComplete && pendingBookingData) {
+      onBookingComplete(pendingBookingData);
+    }
+
+    // Trigger Order Confirmed SMS Notification
+    setSmsAlert({
+      title: 'Mobile SMS Order Confirmed',
+      body: `kuiky.in Order ${pendingBookingData?.id} Confirmed! Vehicle: ${vehicle.name}. Pickup: ${travelDate} at ${travelTime} in ${pickupCity}. Pay ₹${totalFare} at destination.`,
+      time: 'Just now'
+    });
 
     setBookingConfirmed(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -663,6 +717,113 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
             </div>
           </div>
         )}
+
+        {/* 1. SIMULATED LIVE MOBILE SMS TOAST BANNER */}
+        {smsAlert && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md bg-slate-900/95 backdrop-blur-xl text-white p-4 rounded-2xl shadow-2xl border border-blue-500/50 flex items-start gap-3 animate-slide-down">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div className="flex-1 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <strong className="text-blue-400 font-extrabold flex items-center gap-1">
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-400" /> {smsAlert.title}
+                </strong>
+                <span className="text-[10px] text-slate-400 font-medium">{smsAlert.time}</span>
+              </div>
+              <p className="text-slate-200 font-medium leading-relaxed">{smsAlert.body}</p>
+            </div>
+            <button
+              onClick={() => setSmsAlert(null)}
+              className="p-1 text-slate-400 hover:text-white cursor-pointer transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* 2. MOBILE SMS OTP VERIFICATION MODAL */}
+        {isOtpModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-6 relative animate-scale-up">
+              
+              {/* Close Modal */}
+              <button
+                onClick={() => setIsOtpModalOpen(false)}
+                className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-200 shadow-sm">
+                  <Smartphone className="w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">Mobile SMS OTP Verification</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  We have sent a 6-digit SMS OTP code to <strong className="text-slate-900 font-bold">+91 {phone}</strong>
+                </p>
+              </div>
+
+              {/* Simulated Live Mobile SMS Hint Box */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3.5 rounded-2xl border border-blue-200 text-xs text-slate-800 space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between font-bold text-blue-800">
+                  <span className="flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-blue-600" /> Live Mobile SMS Notification
+                  </span>
+                  <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">SIMULATED SMS</span>
+                </div>
+                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                  kuiky.in: Your OTP for order {bookingId} is <strong className="text-blue-700 text-sm font-black tracking-widest">{generatedOtp}</strong>. Valid for 10 mins.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setOtpInput(generatedOtp)}
+                  className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] rounded-xl cursor-pointer shadow-xs transition-colors"
+                >
+                  ⚡ Auto-Fill SMS OTP ({generatedOtp})
+                </button>
+              </div>
+
+              <form onSubmit={handleVerifyBookingOtp} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Enter 6-Digit SMS OTP *
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="e.g. 682941"
+                      value={otpInput}
+                      onChange={(e) => { setOtpInput(e.target.value); setOtpError(''); }}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-center font-black text-lg tracking-widest text-slate-900 focus:outline-none focus:border-blue-600 shadow-inner"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {otpError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>{otpError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 btn-primary rounded-xl text-white font-black text-sm shadow-md cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Verify OTP & Confirm Booking</span>
+                </button>
+              </form>
+
+            </div>
+          </div>
+        )}
+
       </div>
     </main>
   );
