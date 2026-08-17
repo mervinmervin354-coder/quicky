@@ -128,19 +128,21 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
   return (
     <main className="flex-1 bg-slate-50 py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Back to Fleet Directory</span>
-          </button>
-          <span className="text-xs font-bold text-blue-600 bg-blue-100/80 px-3 py-1 rounded-full uppercase tracking-wider">
-            Step 2 of 2: Checkout
-          </span>
-        </div>
+        {/* Navigation Breadcrumb (Only visible during checkout before confirmation) */}
+        {!bookingConfirmed && (
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={onBackToHome}
+              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Back to Fleet Directory</span>
+            </button>
+            <span className="text-xs font-bold text-blue-600 bg-blue-100/80 px-3 py-1 rounded-full uppercase tracking-wider">
+              Step 2 of 2: Checkout
+            </span>
+          </div>
+        )}
 
         {!bookingConfirmed ? (
           <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
