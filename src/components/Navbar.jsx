@@ -38,7 +38,7 @@ export default function Navbar({ activePage, currentUser, bookingCount = 0, onNa
           </div>
           <div>
             <span className="text-2xl font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
-              Kuiky<span className="text-blue-600">.in</span>
+              Kuiky
             </span>
           </div>
         </button>

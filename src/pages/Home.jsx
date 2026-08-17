@@ -348,22 +348,43 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                 className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden card-hover group flex flex-col justify-between shadow-md"
               >
                 <div>
-                  {/* Card Header & Image */}
-                  <div className="relative h-48 bg-slate-100 overflow-hidden">
-                    <img
-                      src={vehicle.image}
-                      alt={vehicle.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 text-[11px] font-black text-slate-900 flex items-center gap-1.5 shadow-xs">
-                      <Icon className="w-3.5 h-3.5 text-blue-600" />
-                      <span>{vehicle.category}</span>
-                    </div>
+                  {/* Card Header & Image (Or Category Banner if No Image) */}
+                  {vehicle.image ? (
+                    <div className="relative h-48 bg-slate-100 overflow-hidden">
+                      <img
+                        src={vehicle.image}
+                        alt={vehicle.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 text-[11px] font-black text-slate-900 flex items-center gap-1.5 shadow-xs">
+                        <Icon className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{vehicle.category}</span>
+                      </div>
 
-                    <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
-                      ₹{vehicle.price} / km
+                      <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
+                        ₹{vehicle.price} / km
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="relative h-28 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-4 flex flex-col justify-between border-b border-slate-700/60">
+                      <div className="flex items-center justify-between">
+                        <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-black text-white flex items-center gap-1.5 shadow-xs">
+                          <Icon className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{vehicle.category}</span>
+                        </div>
+
+                        <div className="bg-emerald-500 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
+                          ₹{vehicle.price} / km
+                        </div>
+                      </div>
+                      <div className="text-white font-black text-base flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-300 border border-blue-400/30">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span>{vehicle.name}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Vehicle Info Specs */}
                   <div className="p-6 space-y-4">
