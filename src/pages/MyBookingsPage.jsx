@@ -203,6 +203,9 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
                     <div className="space-y-1.5 sm:text-right">
                       <span className="text-slate-400 font-bold uppercase text-[10px] block">Payment Summary</span>
                       <div className="text-2xl font-black text-blue-600">₹{booking.totalFare}</div>
+                      <div className="text-[10px] font-semibold text-slate-500 block">
+                        Base: ₹{booking.baseFare || (booking.totalFare - 49)} + Platform Fee: ₹{booking.platformFee || 49}
+                      </div>
                       <div className="inline-block bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-bold">
                         Pay ₹{booking.totalFare} upon reaching {booking.destinationCity}
                       </div>
