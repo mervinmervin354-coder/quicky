@@ -361,10 +361,58 @@ export const FLEET_DATA = [
     color: 'Golden Brown Metallic',
     insuranceValid: 'Valid till Jan 2028',
     features: ['Honda Sensing ADAS', 'Leatherette Upholstery', 'LaneWatch Camera', '506L Trunk Capacity']
+  },
+
+  // Commercial Goods Trucks (₹15 - ₹25 / km)
+  {
+    id: 'truck-1',
+    name: 'Tata Ace Gold Diesel (Chota Hathi)',
+    category: 'Commercial Trucks',
+    price: 15,
+    rating: 4.96,
+    reviews: 340,
+    seats: 2,
+    transmission: 'Manual 5-Speed',
+    fuel: '702 cc Diesel / CNG',
+    image: '/trucks/tata_ace.jpg',
+    featured: true,
+    tag: 'Popular Mini Truck (750 kg Payload)',
+    ownerName: 'Mr. P. Velusamy (Kovai Logistics)',
+    ownerPhone: '+91 98421 77889',
+    ownerLocation: 'Goods Shed Road, Coimbatore',
+    ownerRating: 4.95,
+    registrationNo: 'TN-37-TA-8899',
+    modelYear: '2024 Model',
+    color: 'Pure White',
+    insuranceValid: 'Valid till Nov 2027',
+    features: ['750 kg Payload Capacity', 'High Mileage Diesel Engine', 'Heavy Duty Cargo Bed', 'All-India Permit']
+  },
+  {
+    id: 'truck-2',
+    name: 'Eicher Pro 2049 Commercial Goods Truck',
+    category: 'Commercial Trucks',
+    price: 25,
+    rating: 4.98,
+    reviews: 290,
+    seats: 3,
+    transmission: 'Manual 5-Speed',
+    fuel: 'E366 3.3L Turbo Diesel',
+    image: '/trucks/eicher.jpg',
+    featured: true,
+    tag: 'Heavy Commercial Carrier (3.5 Ton Payload)',
+    ownerName: 'Mr. K. Natarajan (Kongu Transport)',
+    ownerPhone: '+91 97877 44556',
+    ownerLocation: 'Lorry Owner Association, Salem',
+    ownerRating: 4.97,
+    registrationNo: 'TN-27-EP-4512',
+    modelYear: '2024 Model',
+    color: 'Yellow & Blue Container',
+    insuranceValid: 'Valid till Dec 2027',
+    features: ['3500 kg Payload Capacity', '14 Feet Covered Container Body', 'GPS Live Location Tracking', 'Intercity Goods Carrier']
   }
 ];
 
-export const CATEGORIES = ['All', '2-Wheeler Bikes', '3-Wheeler Autos', '4-Wheeler Cars'];
+export const CATEGORIES = ['All', '2-Wheeler Bikes', '3-Wheeler Autos', '4-Wheeler Cars', 'Commercial Trucks'];
 
 export const CITIES = [
   'Coimbatore',
@@ -382,7 +430,8 @@ export const CITIES = [
 export const CATEGORY_RATES = {
   '2-Wheeler Bikes': 8,
   '3-Wheeler Autos': 10,
-  '4-Wheeler Cars': 12
+  '4-Wheeler Cars': 12,
+  'Commercial Trucks': 15
 };
 
 export const getPerKmRate = (category) => {
@@ -390,6 +439,7 @@ export const getPerKmRate = (category) => {
   if (category.includes('2-Wheeler') || category.includes('Bike')) return 8;
   if (category.includes('3-Wheeler') || category.includes('Auto')) return 10;
   if (category.includes('4-Wheeler') || category.includes('Car')) return 12;
+  if (category.includes('Commercial') || category.includes('Truck')) return 15;
   return 8;
 };
 

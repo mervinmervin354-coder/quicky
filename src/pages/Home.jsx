@@ -14,6 +14,7 @@ import {
   Sparkles,
   Car,
   Bike,
+  Truck,
   Clock,
   ArrowRight,
   DollarSign,
@@ -38,12 +39,21 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
 
   const filteredFleet = useMemo(() => {
     return FLEET_DATA.filter((car) => {
-      const matchCat = selectedCategory === 'All' || car.category === selectedCategory;
-      const matchQuery = car.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         car.category.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchQuery;
+      const matchesCategory = selectedCategory === 'All' || car.category === selectedCategory;
+      const matchesSearch =
+        car.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        car.tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        car.fuel.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
     });
   }, [selectedCategory, searchQuery]);
+
+  const getCategoryIcon = (category) => {
+    if (category.includes('2-Wheeler') || category.includes('Bike')) return Bike;
+    if (category.includes('3-Wheeler') || category.includes('Auto')) return Bike;
+    if (category.includes('Commercial') || category.includes('Truck')) return Truck;
+    return Car;
+  };
 
   const handleSearchVehicles = () => {
     const el = document.getElementById('fleet');
@@ -56,12 +66,6 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
     } else {
       setActiveVehicle(vehicle);
     }
-  };
-
-  const getCategoryIcon = (category) => {
-    if (category.includes('2-Wheeler') || category.includes('Bike')) return Bike;
-    if (category.includes('3-Wheeler') || category.includes('Auto')) return Bike;
-    return Car;
   };
 
   // HERO 3-IMAGE SLIDER CAROUSEL DATA
