@@ -16,11 +16,12 @@ import {
   Fuel,
   Settings,
   Sparkles,
-  Info
+  Info,
+  XCircle
 } from 'lucide-react';
 import VehicleDetailsModal from '../components/VehicleDetailsModal';
 
-export default function MyBookingsPage({ bookings = [], currentUser, onSelectVehicleDetails, onBackToHome, onBookNewVehicle }) {
+export default function MyBookingsPage({ bookings = [], currentUser, onSelectVehicleDetails, onCancelBooking, onBackToHome, onBookNewVehicle }) {
   const [selectedVehicleDetails, setSelectedVehicleDetails] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -222,6 +223,21 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
                       >
                         <FileText className="w-3.5 h-3.5 text-slate-500" />
                         <span>Download Receipt</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to cancel booking ${booking.id} (${booking.vehicle?.name})?`)) {
+                            if (onCancelBooking) {
+                              onCancelBooking(booking.id);
+                              alert(`Booking ${booking.id} has been successfully cancelled.`);
+                            }
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-red-500" />
+                        <span>Cancel Booking</span>
                       </button>
                     </div>
                   </div>

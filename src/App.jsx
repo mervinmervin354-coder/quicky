@@ -63,6 +63,10 @@ export default function App() {
     setCustomerBookings((prev) => [newBookingObj, ...prev]);
   };
 
+  const handleCancelBooking = (bookingId) => {
+    setCustomerBookings((prev) => prev.filter((b) => b.id !== bookingId));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       <Navbar
@@ -106,6 +110,7 @@ export default function App() {
           bookings={customerBookings}
           currentUser={currentUser}
           onSelectVehicleDetails={handleViewVehicleDetails}
+          onCancelBooking={handleCancelBooking}
           onBackToHome={() => handleNavigate('home')}
           onBookNewVehicle={() => handleNavigate('home')}
         />
