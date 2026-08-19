@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import BookingPage from './pages/BookingPage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import MyBookingsPage from './pages/MyBookingsPage';
 import VehicleDetailsPage from './pages/VehicleDetailsPage';
+import SettingsPage from './pages/SettingsPage';
+import ContactPage from './pages/ContactPage';
 import Footer from './components/Footer';
-import { FLEET_DATA } from './data/fleetData';
+import { FLEET_DATA } from './data/vehiclesData';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -17,6 +20,42 @@ export default function App() {
   const [pendingBooking, setPendingBooking] = useState(false);
   const [customerBookings, setCustomerBookings] = useState([]);
 
+  // Initialize browser history entry & sync back/forward browser button navigation
+  useEffect(() => {
+    if (!window.history.state || !window.history.state.page) {
+      window.history.replaceState({ page: 'home' }, '');
+    }
+
+    const handlePopState = (e) => {
+      if (e.state && e.state.page) {
+        setCurrentPage(e.state.page);
+      } else {
+        setCurrentPage('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateToPage = (nextPage, replace = false) => {
+    setCurrentPage(nextPage);
+    if (replace) {
+      window.history.replaceState({ page: nextPage }, '');
+    } else {
+      window.history.pushState({ page: nextPage }, '');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackNavigation = () => {
+    if (window.history.state && window.history.state.page && window.history.state.page !== 'home') {
+      window.history.back();
+    } else {
+      navigateToPage('home');
+    }
+  };
+
   const handleStartBooking = (vehicle, pickup = '', destination = '') => {
     if (vehicle) setSelectedVehicle(vehicle);
     setBookingPickup(pickup);
@@ -24,39 +63,34 @@ export default function App() {
 
     if (!currentUser) {
       setPendingBooking(true);
-      setCurrentPage('login');
+      navigateToPage('login');
     } else {
-      setCurrentPage('booking');
+      navigateToPage('booking');
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleViewVehicleDetails = (vehicle) => {
     if (vehicle) setSelectedVehicle(vehicle);
-    setCurrentPage('vehicle-details');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateToPage('vehicle-details');
   };
 
   const handleNavigate = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateToPage(page);
   };
 
   const handleLoginSuccess = (userObj) => {
     setCurrentUser(userObj);
     if (pendingBooking) {
       setPendingBooking(false);
-      setCurrentPage('booking');
+      navigateToPage('booking', true);
     } else {
-      setCurrentPage('home');
+      navigateToPage('home', true);
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setCurrentPage('login');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateToPage('login');
   };
 
   const handleBookingComplete = (newBookingObj) => {
@@ -69,14 +103,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
-      <Navbar
-        activePage={currentPage}
-        currentUser={currentUser}
-        bookingCount={customerBookings.length}
-        onNavigate={handleNavigate}
-        onStartBooking={() => handleStartBooking(selectedVehicle || FLEET_DATA[0], bookingPickup, bookingDestination)}
-        onLogout={handleLogout}
-      />
+      {currentPage !== 'login' && currentPage !== 'register' && (
+        <Navbar
+          activePage={currentPage}
+          currentUser={currentUser}
+          bookingCount={customerBookings.length}
+          onNavigate={handleNavigate}
+          onStartBooking={() => handleStartBooking(selectedVehicle || FLEET_DATA[0], bookingPickup, bookingDestination)}
+          onLogout={handleLogout}
+        />
+      )}
 
       {currentPage === 'home' && (
         <Home
@@ -93,7 +129,8 @@ export default function App() {
           initialDestination={bookingDestination}
           currentUser={currentUser}
           onBookingComplete={handleBookingComplete}
-          onBackToHome={() => handleNavigate('home')}
+          onSelectVehicleDetails={handleViewVehicleDetails}
+          onBackToHome={handleBackNavigation}
         />
       )}
 
@@ -101,7 +138,17 @@ export default function App() {
         <LoginPage
           isPendingBooking={pendingBooking}
           onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => handleNavigate('home')}
+          onNavigateToRegister={() => handleNavigate('register')}
+          onBackToHome={handleBackNavigation}
+        />
+      )}
+
+      {currentPage === 'register' && (
+        <RegisterPage
+          isPendingBooking={pendingBooking}
+          onRegisterSuccess={handleLoginSuccess}
+          onNavigateToLogin={() => handleNavigate('login')}
+          onBackToHome={handleBackNavigation}
         />
       )}
 
@@ -111,7 +158,7 @@ export default function App() {
           currentUser={currentUser}
           onSelectVehicleDetails={handleViewVehicleDetails}
           onCancelBooking={handleCancelBooking}
-          onBackToHome={() => handleNavigate('home')}
+          onBackToHome={handleBackNavigation}
           onBookNewVehicle={() => handleNavigate('home')}
         />
       )}
@@ -120,11 +167,26 @@ export default function App() {
         <VehicleDetailsPage
           vehicle={selectedVehicle}
           onStartBooking={handleStartBooking}
-          onBackToHome={() => handleNavigate('home')}
+          onBackToHome={handleBackNavigation}
         />
       )}
 
-      {currentPage !== 'login' && currentPage !== 'booking' && (
+      {currentPage === 'settings' && (
+        <SettingsPage
+          currentUser={currentUser}
+          onUpdateUser={(updatedUser) => setCurrentUser(updatedUser)}
+          onLogout={handleLogout}
+          onBackToHome={handleBackNavigation}
+        />
+      )}
+
+      {currentPage === 'contact' && (
+        <ContactPage
+          onBackToHome={handleBackNavigation}
+        />
+      )}
+
+      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'booking' && currentPage !== 'settings' && (
         <Footer onNavigate={handleNavigate} />
       )}
     </div>

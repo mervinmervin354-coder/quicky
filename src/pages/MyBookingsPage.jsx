@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Car,
-  Bike,
+  Truck,
   Calendar,
   Clock,
   MapPin,
@@ -61,13 +61,19 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
           <div className="space-y-6">
             {bookings.map((booking, index) => {
               const VehicleIcon = booking.vehicle?.category?.includes('Bike') ? Bike : Car;
+              const isPaidOnline = Boolean(
+                booking.razorpayPaymentId ||
+                booking.paymentMethod === 'upi' ||
+                booking.paymentMethod === 'card' ||
+                booking.paymentStatus === 'paid'
+              );
 
               return (
                 <div
                   key={booking.id || index}
                   className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/90 space-y-6 hover:shadow-md transition-all"
                 >
-                  {/* Top Bar: Booking Ref ID & Reserved Badge */}
+                  {/* Top Bar: Booking Ref ID & Payment Status Badge */}
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
                       <span className="text-slate-400 uppercase text-[10px] font-bold tracking-wider block">Booking Reference ID</span>
@@ -75,10 +81,17 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 rounded-full text-xs font-bold">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Vehicle Reserved</span>
-                      </span>
+                      {isPaidOnline ? (
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-1.5 rounded-full text-xs font-black shadow-2xs">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Paid Online (Booked)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-300 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-2xs">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>Pay Cash/UPI at Destination</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -97,7 +110,7 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
                             </span>
                           </div>
                           <p className="text-xs text-slate-300 mt-0.5 font-medium">
-                            Owner: <strong className="text-white">{booking.vehicle?.ownerName || 'RTO Verified Partner'}</strong> ({booking.vehicle?.ownerPhone || '+91 98421 00000'})
+                            Owner: <strong className="text-white">{booking.vehicle?.ownerName || 'Verified Fleet Owner'}</strong> ({booking.vehicle?.ownerPhone || '+91 98421 00000'})
                           </p>
                         </div>
                       </div>
@@ -119,37 +132,35 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
                     </div>
 
                     {/* Vehicle Specifications Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-300">
-                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center gap-2">
-                        <Users className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div>
-                          <span className="text-[10px] text-slate-400 block font-semibold">Capacity</span>
-                          <strong className="text-white font-bold">{booking.vehicle?.seats} Persons</strong>
-                        </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs text-slate-300">
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Reg Number</span>
+                        <strong className="text-white font-bold block text-[11px] truncate">{booking.vehicle?.registrationNo}</strong>
                       </div>
 
-                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center gap-2">
-                        <Fuel className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <div>
-                          <span className="text-[10px] text-slate-400 block font-semibold">Engine / Fuel</span>
-                          <strong className="text-white font-bold">{booking.vehicle?.fuel}</strong>
-                        </div>
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Load Capacity</span>
+                        <strong className="text-emerald-400 font-bold block text-[11px] truncate">{booking.vehicle?.loadCapacity}</strong>
                       </div>
 
-                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-purple-400 shrink-0" />
-                        <div>
-                          <span className="text-[10px] text-slate-400 block font-semibold">Transmission</span>
-                          <strong className="text-white font-bold">{booking.vehicle?.transmission}</strong>
-                        </div>
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Body Dimensions</span>
+                        <strong className="text-blue-300 font-bold block text-[11px] truncate">{booking.vehicle?.bodyDimensions}</strong>
                       </div>
 
-                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                        <div>
-                          <span className="text-[10px] text-slate-400 block font-semibold">Reg No</span>
-                          <strong className="text-emerald-400 font-bold">{booking.vehicle?.registrationNo || 'TN-37-REG'}</strong>
-                        </div>
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Fuel / Engine</span>
+                        <strong className="text-white font-bold block text-[11px] truncate">{booking.vehicle?.fuel}</strong>
+                      </div>
+
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Model / Year</span>
+                        <strong className="text-white font-bold block text-[11px] truncate">{booking.vehicle?.modelYear}</strong>
+                      </div>
+
+                      <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Category</span>
+                        <strong className="text-blue-300 font-bold block text-[11px] truncate">{booking.vehicle?.category}</strong>
                       </div>
                     </div>
                   </div>
@@ -202,13 +213,21 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
 
                     <div className="space-y-1.5 sm:text-right">
                       <span className="text-slate-400 font-bold uppercase text-[10px] block">Payment Summary</span>
-                      <div className="text-2xl font-black text-blue-600">₹{booking.totalFare}</div>
+                      <div className={`text-2xl font-black ${isPaidOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        ₹{booking.totalFare}
+                      </div>
                       <div className="text-[10px] font-semibold text-slate-500 block">
                         Base: ₹{booking.baseFare || (booking.totalFare - 7)} + Platform Fee: ₹{booking.platformFee || 7}
                       </div>
-                      <div className="inline-block bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-bold">
-                        Pay ₹{booking.totalFare} upon reaching {booking.destinationCity}
-                      </div>
+                      {isPaidOnline ? (
+                        <div className="inline-block bg-emerald-100 text-emerald-900 px-3 py-1 rounded-lg border border-emerald-300 text-[11px] font-black shadow-2xs">
+                          ✓ Already Paid Online {booking.razorpayPaymentId ? `(Txn ID: ${booking.razorpayPaymentId})` : '(GPay / UPI)'}
+                        </div>
+                      ) : (
+                        <div className="inline-block bg-amber-50 text-amber-900 px-3 py-1 rounded-lg border border-amber-300 text-[11px] font-bold shadow-2xs">
+                          Pay ₹{booking.totalFare} Cash/UPI at {booking.destinationCity || 'Destination'}
+                        </div>
+                      )}
                     </div>
                   </div>
 

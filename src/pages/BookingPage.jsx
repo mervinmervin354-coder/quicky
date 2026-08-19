@@ -4,7 +4,7 @@ import {
   Navigation,
   CheckCircle2,
   Car,
-  Bike,
+  Truck,
   ShieldCheck,
   ChevronLeft,
   User,
@@ -27,30 +27,55 @@ import {
   X,
   KeyRound
 } from 'lucide-react';
-import { CITIES, calculateDistance, getPerKmRate } from '../data/fleetData';
+import { CITIES, calculateDistance, getPerKmRate } from '../data/vehiclesData';
+import RouteMap from '../components/RouteMap';
 
 export default function BookingPage({ vehicle, initialPickup = '', initialDestination = '', currentUser, onBookingComplete, onSelectVehicleDetails, onBackToHome }) {
   const [pickupCity, setPickupCity] = useState(initialPickup || '');
   const [destinationCity, setDestinationCity] = useState(initialDestination || '');
-  const [travelDate, setTravelDate] = useState(() => {
+  const minDate = useMemo(() => {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  });
-  const [travelTime, setTravelTime] = useState('09:00');
+  }, []);
+
+  const currentTime = useMemo(() => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }, []);
+
+  const defaultTime = useMemo(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 30);
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }, []);
+
+  const [travelDate, setTravelDate] = useState(minDate);
+  const [travelTime, setTravelTime] = useState(defaultTime);
 
   // Customer form details
-  const [fullName, setFullName] = useState(currentUser?.name || '');
+  const initialFullName = useMemo(() => {
+    if (!currentUser?.name) return '';
+    if (/\d/.test(currentUser.name) || currentUser.name.startsWith('Customer')) return '';
+    return currentUser.name;
+  }, [currentUser]);
+
+  const [fullName, setFullName] = useState(initialFullName);
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [pickupAddress, setPickupAddress] = useState('');
   const [driverOption, setDriverOption] = useState('with-driver'); // 'with-driver' or 'self-drive'
-  const [paymentMethod, setPaymentMethod] = useState('pay-at-destination'); // 'pay-at-destination', 'upi', 'card'
+  const [paymentMethod, setPaymentMethod] = useState(''); // Unselected initially ('pay-at-destination', 'upi', 'card')
 
   // Booking completion state & validation
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [bookingId, setBookingId] = useState('');
   const [validationError, setValidationError] = useState('');
 
@@ -61,6 +86,14 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
   const [otpError, setOtpError] = useState('');
   const [smsAlert, setSmsAlert] = useState(null); // { title, body, time }
   const [pendingBookingData, setPendingBookingData] = useState(null);
+
+  // Online Payment Gateway States (for UPI / GPay / Card)
+  const [isOnlinePaymentModalOpen, setIsOnlinePaymentModalOpen] = useState(false);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const [upiIdInput, setUpiIdInput] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
 
   // Platform Fee constant
   const platformFee = 7;
@@ -83,7 +116,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
     return baseFare + platformFee;
   }, [baseFare, platformFee]);
 
-  const VehicleIcon = vehicle?.category?.includes('Bike') ? Bike : Car;
+  const VehicleIcon = vehicle?.category?.includes('Truck') ? Truck : Car;
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -91,9 +124,21 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
       setValidationError('Please select both Pick-up Location and Reach Destination to complete your booking.');
       return;
     }
+    if (travelDate && travelDate < minDate) {
+      setValidationError('Travel date cannot be a past date. Please select today or a future date.');
+      return;
+    }
+    if (travelDate === minDate && travelTime < currentTime) {
+      setValidationError(`Pickup time (${travelTime}) cannot be in the past for today's date (${minDate}). Earliest available pickup time is ${currentTime}.`);
+      return;
+    }
     const cleanPhone = (phone || '').replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       setValidationError('Please enter a valid 10-digit Mobile Phone Number to receive SMS OTP.');
+      return;
+    }
+    if (!paymentMethod) {
+      setValidationError('Please select a Payment Mode (Pay at Destination, Online UPI / GPay, or Debit/Credit Card) to proceed.');
       return;
     }
     setValidationError('');
@@ -138,6 +183,72 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
     });
   };
 
+  const triggerRazorpayCheckout = (bookingData) => {
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_ScsgT2nkDnp7s8';
+    const targetData = bookingData || pendingBookingData;
+
+    if (window.Razorpay) {
+      try {
+        const options = {
+          key: razorpayKey,
+          amount: (targetData?.totalFare || totalFare) * 100, // Amount in paise
+          currency: 'INR',
+          name: 'kuiky.in Commercial Logistics',
+          description: `Vehicle Booking: ${vehicle?.name || 'Goods Carrier'} (${targetData?.id || bookingId})`,
+          image: vehicle?.image || '/trucks/tata_ace.jpg',
+          handler: function (response) {
+            console.log('Razorpay Payment Successful:', response);
+            const confirmedData = {
+              ...(targetData || {}),
+              razorpayPaymentId: response.razorpay_payment_id
+            };
+
+            if (onBookingComplete) {
+              onBookingComplete(confirmedData);
+            }
+
+            setSmsAlert({
+              title: 'Razorpay Online Payment Successful',
+              body: `kuiky.in: Payment of ₹${targetData?.totalFare} received via Razorpay (Txn ID: ${response.razorpay_payment_id}). Order ${targetData?.id} Confirmed!`,
+              time: 'Just now'
+            });
+
+            setConfirmedBooking(confirmedData);
+            setBookingConfirmed(true);
+            setIsOnlinePaymentModalOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          },
+          prefill: {
+            name: fullName || 'Valued Customer',
+            email: email || 'customer@kuiky.in',
+            contact: phone || '9842100000'
+          },
+          notes: {
+            pickup: pickupCity,
+            destination: destinationCity,
+            vehicle: vehicle?.name
+          },
+          theme: {
+            color: '#2563eb'
+          },
+          modal: {
+            ondismiss: function () {
+              setIsOnlinePaymentModalOpen(true);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        console.error('Razorpay popup error:', err);
+        setIsOnlinePaymentModalOpen(true);
+      }
+    } else {
+      setIsOnlinePaymentModalOpen(true);
+    }
+  };
+
   const handleVerifyBookingOtp = (e) => {
     e.preventDefault();
     const cleanOtp = otpInput.trim();
@@ -149,19 +260,46 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
     setOtpError('');
     setIsOtpModalOpen(false);
 
-    if (onBookingComplete && pendingBookingData) {
-      onBookingComplete(pendingBookingData);
+    if (pendingBookingData?.paymentMethod === 'pay-at-destination') {
+      // Pay at destination: Immediately confirm vehicle booking!
+      if (onBookingComplete && pendingBookingData) {
+        onBookingComplete(pendingBookingData);
+      }
+      setSmsAlert({
+        title: 'Mobile SMS Order Confirmed',
+        body: `kuiky.in Order ${pendingBookingData?.id} Confirmed! Vehicle: ${vehicle.name}. Pickup: ${travelDate} at ${travelTime} in ${pickupCity}. Pay ₹${totalFare} at destination.`,
+        time: 'Just now'
+      });
+      setConfirmedBooking(pendingBookingData);
+      setBookingConfirmed(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Online Payment (UPI / GPay / Card): Launch Official Razorpay Payment Popup!
+      triggerRazorpayCheckout(pendingBookingData);
     }
+  };
 
-    // Trigger Order Confirmed SMS Notification
-    setSmsAlert({
-      title: 'Mobile SMS Order Confirmed',
-      body: `kuiky.in Order ${pendingBookingData?.id} Confirmed! Vehicle: ${vehicle.name}. Pickup: ${travelDate} at ${travelTime} in ${pickupCity}. Pay ₹${totalFare} at destination.`,
-      time: 'Just now'
-    });
+  const handleCompleteOnlinePayment = (e) => {
+    e.preventDefault();
+    setIsPaymentProcessing(true);
+    setTimeout(() => {
+      setIsPaymentProcessing(false);
+      setIsOnlinePaymentModalOpen(false);
 
-    setBookingConfirmed(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (onBookingComplete && pendingBookingData) {
+        onBookingComplete(pendingBookingData);
+      }
+
+      setSmsAlert({
+        title: 'Online Payment Successful',
+        body: `kuiky.in Payment of ₹${pendingBookingData?.totalFare} Received! Order ${pendingBookingData?.id} Confirmed. Vehicle: ${vehicle.name}. Pickup: ${travelDate} at ${travelTime}.`,
+        time: 'Just now'
+      });
+
+      setConfirmedBooking(pendingBookingData);
+      setBookingConfirmed(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 1200);
   };
 
   if (!vehicle) {
@@ -220,19 +358,34 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-blue-600" /> Pick-up Location *
                     </label>
-                    <select
-                      value={pickupCity}
-                      onChange={(e) => { setPickupCity(e.target.value); setValidationError(''); }}
-                      className={`w-full bg-transparent text-xs sm:text-sm font-semibold focus:outline-none cursor-pointer ${
-                        pickupCity ? 'text-slate-800' : 'text-slate-400 font-normal'
-                      }`}
-                      required
-                    >
-                      <option value="">Select Pick-up City</option>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        list="pickup-cities-booking"
+                        placeholder="Type city or select pickup location..."
+                        value={pickupCity}
+                        onChange={(e) => {
+                          setPickupCity(e.target.value);
+                          setValidationError('');
+                        }}
+                        className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none pr-6"
+                        required
+                      />
+                      {pickupCity && (
+                        <button
+                          type="button"
+                          onClick={() => setPickupCity('')}
+                          className="absolute right-0 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 cursor-pointer transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <datalist id="pickup-cities-booking">
                       {CITIES.map((city) => (
-                        <option key={city} value={city} className="text-slate-800 font-semibold">{city}</option>
+                        <option key={city} value={city} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
 
                   {/* Reach Destination */}
@@ -240,19 +393,34 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                       <Navigation className="w-3.5 h-3.5 text-emerald-600" /> Reach Destination *
                     </label>
-                    <select
-                      value={destinationCity}
-                      onChange={(e) => { setDestinationCity(e.target.value); setValidationError(''); }}
-                      className={`w-full bg-transparent text-xs sm:text-sm font-semibold focus:outline-none cursor-pointer ${
-                        destinationCity ? 'text-slate-800' : 'text-slate-400 font-normal'
-                      }`}
-                      required
-                    >
-                      <option value="">Select Reach Destination</option>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        list="destination-cities-booking"
+                        placeholder="Type city or select destination..."
+                        value={destinationCity}
+                        onChange={(e) => {
+                          setDestinationCity(e.target.value);
+                          setValidationError('');
+                        }}
+                        className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none pr-6"
+                        required
+                      />
+                      {destinationCity && (
+                        <button
+                          type="button"
+                          onClick={() => setDestinationCity('')}
+                          className="absolute right-0 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 cursor-pointer transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <datalist id="destination-cities-booking">
                       {CITIES.map((city) => (
-                        <option key={city} value={city} className="text-slate-800 font-semibold">{city}</option>
+                        <option key={city} value={city} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
 
                   {/* Travel Date */}
@@ -262,6 +430,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     </label>
                     <input
                       type="date"
+                      min={minDate}
                       value={travelDate}
                       onChange={(e) => setTravelDate(e.target.value)}
                       className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
@@ -270,16 +439,44 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
 
                   {/* Pickup Time */}
                   <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-blue-600" /> Preferred Pickup Time
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-blue-600" /> Preferred Pickup Time *
+                      </label>
+                      {travelDate === minDate && (
+                        <span className="text-[10px] text-blue-700 font-extrabold bg-blue-100/80 px-2 py-0.5 rounded border border-blue-200">
+                          Earliest: {currentTime}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="time"
+                      min={travelDate === minDate ? currentTime : undefined}
                       value={travelTime}
-                      onChange={(e) => setTravelTime(e.target.value)}
+                      onChange={(e) => {
+                        setTravelTime(e.target.value);
+                        setValidationError('');
+                      }}
                       className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                      required
                     />
                   </div>
+                </div>
+
+                {/* Interactive Route Map */}
+                <div className="pt-2">
+                  <RouteMap
+                    pickupCity={pickupCity}
+                    destinationCity={destinationCity}
+                    onSelectPickup={(city) => {
+                      setPickupCity(city);
+                      setValidationError('');
+                    }}
+                    onSelectDestination={(city) => {
+                      setDestinationCity(city);
+                      setValidationError('');
+                    }}
+                  />
                 </div>
 
                 {/* Route Distance Banner */}
@@ -296,7 +493,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                 ) : (
                   <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center gap-2 text-xs font-semibold text-amber-800">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Select Pick-up City & Reach Destination above to compute route distance & fare.</span>
+                    <span>Select Pick-up City & Reach Destination on map or dropdowns to compute distance & fare.</span>
                   </div>
                 )}
               </div>
@@ -319,6 +516,9 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                       <User className="w-3.5 h-3.5 text-blue-600" /> Full Name *
                     </label>
                     <input
+                      id="booking_fullname"
+                      name="booking_fullname"
+                      autoComplete="name"
                       type="text"
                       required
                       placeholder="e.g. Ramesh Kumar"
@@ -333,11 +533,17 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                       <Phone className="w-3.5 h-3.5 text-blue-600" /> Mobile / Phone Number *
                     </label>
                     <input
+                      id="booking_phone"
+                      name="booking_phone"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       type="tel"
                       required
-                      placeholder="+91 98765 43210"
+                      maxLength={10}
+                      placeholder="10-digit mobile number (e.g. 9842100000)"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-blue-600 font-medium"
                     />
                   </div>
@@ -365,44 +571,6 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                       onChange={(e) => setPickupAddress(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-blue-600 font-medium"
                     />
-                  </div>
-                </div>
-
-                {/* Driver Preference */}
-                <div className="pt-2">
-                  <label className="block font-bold text-slate-700 mb-2 text-xs">Driver Choice</label>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setDriverOption('with-driver')}
-                      className={`p-3 rounded-xl border font-bold text-left transition-all cursor-pointer flex items-center gap-2 ${
-                        driverOption === 'with-driver'
-                          ? 'border-blue-600 bg-blue-50/80 text-blue-700'
-                          : 'border-slate-200 text-slate-600 bg-slate-50'
-                      }`}
-                    >
-                      <CheckCircle2 className={`w-4 h-4 ${driverOption === 'with-driver' ? 'text-blue-600' : 'text-slate-300'}`} />
-                      <div>
-                        <div>Professional Chauffeur</div>
-                        <span className="text-[10px] font-normal text-slate-500">Included with trip</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setDriverOption('self-drive')}
-                      className={`p-3 rounded-xl border font-bold text-left transition-all cursor-pointer flex items-center gap-2 ${
-                        driverOption === 'self-drive'
-                          ? 'border-blue-600 bg-blue-50/80 text-blue-700'
-                          : 'border-slate-200 text-slate-600 bg-slate-50'
-                      }`}
-                    >
-                      <CheckCircle2 className={`w-4 h-4 ${driverOption === 'self-drive' ? 'text-blue-600' : 'text-slate-300'}`} />
-                      <div>
-                        <div>Self-Drive Rental</div>
-                        <span className="text-[10px] font-normal text-slate-500">Valid DL required</span>
-                      </div>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -484,7 +652,13 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                 type="submit"
                 className="w-full py-4 btn-primary rounded-2xl text-white font-bold text-base shadow-lg shadow-blue-600/30 cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>Confirm Vehicle Reservation</span>
+                <span>
+                  {paymentMethod === 'pay-at-destination'
+                    ? 'Confirm & Reserve Vehicle (Pay at Destination)'
+                    : paymentMethod === 'upi' || paymentMethod === 'card'
+                    ? `Proceed to Online Payment (${totalFare > 0 ? '₹' + totalFare : ''})`
+                    : 'Select Payment Mode & Confirm Reservation'}
+                </span>
                 <CheckCircle2 className="w-5 h-5" />
               </button>
             </div>
@@ -513,11 +687,18 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     </div>
 
                     <div>
-                      <h4 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors flex items-center justify-between">
+                      <h4 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors flex items-center justify-between gap-2">
                         <span>{vehicle.name}</span>
-                        <span className="text-[11px] font-bold text-blue-400 bg-white/10 px-2 py-0.5 rounded border border-white/20">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onSelectVehicleDetails) onSelectVehicleDetails(vehicle);
+                          }}
+                          className="text-[11px] font-bold text-blue-300 hover:text-white bg-blue-600/40 hover:bg-blue-600 px-2.5 py-1 rounded-lg border border-blue-400/40 transition-all cursor-pointer shadow-xs shrink-0"
+                        >
                           Full Spec Page ➔
-                        </span>
+                        </button>
                       </h4>
                       <p className="text-xs text-slate-300 mt-0.5 font-medium">{vehicle.tag}</p>
                     </div>
@@ -555,20 +736,28 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
 
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
                       <div>
-                        <span className="text-slate-400 block font-semibold">Capacity</span>
-                        <strong className="text-slate-900 font-bold">{vehicle.seats} Seats</strong>
+                        <span className="text-slate-400 block font-semibold">Reg Number</span>
+                        <strong className="text-slate-900 font-bold block truncate">{vehicle.registrationNo}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block font-semibold">Transmission</span>
-                        <strong className="text-slate-900 font-bold">{vehicle.transmission}</strong>
+                        <span className="text-slate-400 block font-semibold">Load Capacity</span>
+                        <strong className="text-emerald-700 font-bold block truncate">{vehicle.loadCapacity}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block font-semibold">Engine / Fuel</span>
-                        <strong className="text-slate-900 font-bold">{vehicle.fuel}</strong>
+                        <span className="text-slate-400 block font-semibold">Body Dimensions</span>
+                        <strong className="text-blue-700 font-bold block truncate">{vehicle.bodyDimensions}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block font-semibold">Model & Color</span>
-                        <strong className="text-slate-900 font-bold">{vehicle.modelYear || '2024'} ({vehicle.color?.split(' ')[0] || 'White'})</strong>
+                        <span className="text-slate-400 block font-semibold">Fuel & Engine</span>
+                        <strong className="text-slate-900 font-bold block truncate">{vehicle.fuel}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block font-semibold">Model Year</span>
+                        <strong className="text-slate-900 font-bold block truncate">{vehicle.modelYear}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block font-semibold">Category</span>
+                        <strong className="text-blue-700 font-bold block truncate">{vehicle.category}</strong>
                       </div>
                     </div>
 
@@ -618,7 +807,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     <div className="flex justify-between items-center text-slate-600">
                       <span className="flex items-center gap-1.5 font-semibold text-slate-700">
                         <span>Platform & Tech Fee</span>
-                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">RTO & Booking Support</span>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">24/7 Booking Support</span>
                       </span>
                       <span className="font-extrabold text-blue-600">{baseFare > 0 ? `₹${platformFee}` : '₹0'}</span>
                     </div>
@@ -668,8 +857,23 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
               </span>
               <h2 className="text-3xl font-extrabold text-slate-900">Your Vehicle is Reserved!</h2>
               <p className="text-sm text-slate-600">
-                Thank you <strong className="text-slate-900">{fullName || 'Valued Renter'}</strong>. Your driver & vehicle have been assigned.
+                Thank you <strong className="text-slate-900">{confirmedBooking?.fullName || fullName || 'Valued Renter'}</strong>. Your driver & vehicle have been assigned.
               </p>
+            </div>
+
+            {/* PROMINENT FEATURED TOTAL FARE DUE BANNER */}
+            <div className="p-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-2xl text-white shadow-lg flex items-center justify-between">
+              <div className="text-left space-y-0.5">
+                <span className="text-xs font-black text-blue-200 uppercase tracking-wider block">Total Fare Due</span>
+                <span className="text-xs text-blue-100 font-medium">
+                  {confirmedBooking?.paymentMethod === 'pay-at-destination' || paymentMethod === 'pay-at-destination'
+                    ? `Pay cash / UPI upon arrival at ${confirmedBooking?.destinationCity || destinationCity}`
+                    : 'Paid Online'}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-3xl sm:text-4xl font-black text-white">₹{confirmedBooking?.totalFare || totalFare}</span>
+              </div>
             </div>
 
             {/* Receipt Summary Card */}
@@ -677,32 +881,48 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
                   <span className="text-slate-400 font-semibold uppercase text-[10px]">Booking Reference</span>
-                  <div className="text-lg font-black text-blue-600">{bookingId}</div>
+                  <div className="text-lg font-black text-blue-600">{confirmedBooking?.id || bookingId}</div>
                 </div>
                 <div className="text-right">
                   <span className="text-slate-400 font-semibold uppercase text-[10px]">Vehicle</span>
-                  <div className="font-bold text-slate-800">{vehicle.name}</div>
+                  <div className="font-bold text-slate-800">{confirmedBooking?.vehicle?.name || vehicle.name}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-1">
                 <div>
                   <span className="text-slate-500 block font-semibold">Route Journey</span>
-                  <strong className="text-slate-800">{pickupCity} ➔ {destinationCity} ({distance} km)</strong>
+                  <strong className="text-slate-800">{confirmedBooking?.pickupCity || pickupCity} ➔ {confirmedBooking?.destinationCity || destinationCity} ({confirmedBooking?.distance || distance} km)</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 block font-semibold">Schedule</span>
-                  <strong className="text-slate-800">{travelDate} at {travelTime}</strong>
+                  <strong className="text-slate-800">{confirmedBooking?.travelDate || travelDate} at {confirmedBooking?.travelTime || travelTime}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 block font-semibold">Payment Mode</span>
-                  <strong className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
-                    Pay ₹{totalFare} Upon Reaching {destinationCity}
+                  <strong className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px] font-bold">
+                    Pay ₹{confirmedBooking?.totalFare || totalFare} Upon Arrival
                   </strong>
                 </div>
                 <div>
                   <span className="text-slate-500 block font-semibold">Total Fare Due</span>
-                  <strong className="text-blue-600 text-sm">₹{totalFare}</strong>
+                  <strong className="text-blue-600 text-base font-black">₹{confirmedBooking?.totalFare || totalFare}</strong>
+                </div>
+              </div>
+
+              {/* Itemized Fare Breakdown */}
+<div className="pt-3 border-t border-slate-200/80 space-y-1.5 text-slate-600">
+                <div className="flex justify-between text-[11px]">
+                  <span>Base Route Fare ({(confirmedBooking?.distance || distance)} km × ₹{confirmedBooking?.perKmRate || perKmRate}/km)</span>
+                  <span className="font-bold text-slate-800">₹{confirmedBooking?.baseFare || baseFare}</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span>Platform & Tech Support Fee</span>
+                  <span className="font-bold text-blue-600">₹{confirmedBooking?.platformFee || platformFee}</span>
+                </div>
+                <div className="flex justify-between text-xs font-black text-slate-900 pt-2 border-t border-slate-200">
+                  <span>Total Amount Due</span>
+                  <span className="text-blue-600 text-base font-black">₹{confirmedBooking?.totalFare || totalFare}</span>
                 </div>
               </div>
             </div>
@@ -745,7 +965,7 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
         {/* 2. MOBILE SMS OTP VERIFICATION MODAL */}
         {isOtpModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-6 relative animate-scale-up">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-6 relative animate-scale-up text-slate-800">
               
               {/* Close Modal */}
               <button
@@ -816,7 +1036,164 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                   className="w-full py-3.5 btn-primary rounded-xl text-white font-black text-sm shadow-md cursor-pointer flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Verify OTP & Confirm Booking</span>
+                  <span>Verify OTP & Proceed</span>
+                </button>
+              </form>
+
+            </div>
+          </div>
+        )}
+
+        {/* 3. ONLINE PAYMENT GATEWAY MODAL (FOR UPI / GPAY / CARD) */}
+        {isOnlinePaymentModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-6 relative animate-scale-up text-slate-800">
+              
+              <button
+                onClick={() => setIsOnlinePaymentModalOpen(false)}
+                className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center space-y-2 border-b border-slate-100 pb-4">
+                <div className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-black">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Secured 256-Bit SSL Payment Gateway</span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900">
+                  {paymentMethod === 'upi' ? 'Online UPI / GPay Payment' : 'Debit / Credit Card Payment'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Order ID: <strong className="text-slate-900">{pendingBookingData?.id}</strong>
+                </p>
+              </div>
+
+              {/* Amount Display */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl text-white text-center space-y-1 shadow-md">
+                <span className="text-xs text-blue-200 font-bold uppercase tracking-wider block">Total Amount Payable</span>
+                <h4 className="text-3xl font-black">₹{pendingBookingData?.totalFare || totalFare}</h4>
+                <p className="text-[11px] text-blue-100 font-medium">Includes base fare & platform charges</p>
+              </div>
+
+              <form onSubmit={handleCompleteOnlinePayment} className="space-y-4">
+                {paymentMethod === 'upi' ? (
+                  <div className="space-y-4">
+                    {/* Simulated UPI QR Code */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-2">
+                      <div className="w-40 h-40 bg-white border border-slate-300 rounded-xl mx-auto flex items-center justify-center p-2 shadow-xs">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=kuikylogistics@okbizaxis&pn=Kuiky.in%20Logistics&am=${pendingBookingData?.totalFare || totalFare}&cu=INR`}
+                          alt="GPay UPI QR Code"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-bold">
+                        Scan QR Code with Google Pay, PhonePe, Paytm, or BHIM
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                        Enter UPI ID / VPA *
+                      </label>
+                      <div className="relative">
+                        <QrCode className="w-4 h-4 text-blue-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="e.g. 9842100000@okaxis or name@upi"
+                          value={upiIdInput}
+                          onChange={(e) => setUpiIdInput(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUpiIdInput(`${(fullName || 'renter').toLowerCase().replace(/\s+/g, '')}@okaxis`)}
+                        className="text-[11px] text-blue-600 hover:underline font-bold"
+                      >
+                        + Auto-fill GPay UPI ID
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Cardholder Name *</label>
+                      <input
+                        type="text"
+                        placeholder="Name on card"
+                        value={cardName || fullName}
+                        onChange={(e) => setCardName(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">16-Digit Card Number *</label>
+                      <input
+                        type="text"
+                        maxLength={19}
+                        placeholder="4532 •••• •••• 8912"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600 tracking-wider"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Expiry Date *</label>
+                        <input
+                          type="text"
+                          maxLength={5}
+                          placeholder="MM/YY"
+                          value={cardExpiry}
+                          onChange={(e) => setCardExpiry(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">CVV Security *</label>
+                        <input
+                          type="password"
+                          maxLength={4}
+                          placeholder="•••"
+                          value={cardCvv}
+                          onChange={(e) => setCardCvv(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => triggerRazorpayCheckout(pendingBookingData)}
+                  className="w-full py-3 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white font-black text-xs rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all border border-blue-400/30"
+                >
+                  <Sparkles className="w-4 h-4 text-blue-300" />
+                  <span>Launch Official Razorpay Popup (Key: rzp_test_ScsgT2nkDnp7s8)</span>
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isPaymentProcessing}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all"
+                >
+                  {isPaymentProcessing ? (
+                    <span>Processing Payment...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Complete Direct Online Payment (₹{pendingBookingData?.totalFare || totalFare})</span>
+                    </>
+                  )}
                 </button>
               </form>
 

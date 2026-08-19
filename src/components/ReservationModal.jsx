@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, Car, Bike, MapPin, Navigation } from 'lucide-react';
-import { calculateDistance, getPerKmRate } from '../data/fleetData';
+import { X, CheckCircle2, Car, Truck, MapPin, Navigation } from 'lucide-react';
+import { calculateDistance, getPerKmRate } from '../data/vehiclesData';
 
 export default function ReservationModal({ activeVehicle, onClose, pickupCity, destinationCity }) {
   const [renterName, setRenterName] = useState('');
@@ -17,7 +17,7 @@ export default function ReservationModal({ activeVehicle, onClose, pickupCity, d
   const distance = calculateDistance(pickupCity, destinationCity);
   const rate = getPerKmRate(activeVehicle.category);
   const totalFare = distance > 0 ? distance * rate : rate * 20;
-  const VehicleIcon = activeVehicle.category.includes('Bike') ? Bike : Car;
+  const VehicleIcon = activeVehicle.category.includes('Truck') ? Truck : Car;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -111,16 +111,26 @@ export default function ReservationModal({ activeVehicle, onClose, pickupCity, d
           </form>
         ) : (
           <div className="text-center py-6 space-y-4">
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-bold text-slate-900">Reservation Confirmed!</h3>
             <p className="text-xs text-slate-600">
               Thank you <strong className="text-slate-900">{renterName || 'Valued Client'}</strong>! Your booking confirmation for the <strong className="text-blue-600">{activeVehicle.name}</strong> has been processed.
             </p>
+
+            {/* Total Fare Due Card */}
+            <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white flex items-center justify-between text-left shadow-md">
+              <div>
+                <span className="text-[10px] font-black uppercase text-blue-200 block">Total Fare Due</span>
+                <span className="text-xs font-medium text-blue-100">Pay at destination ({destinationCity || 'Arrival'})</span>
+              </div>
+              <span className="text-2xl font-black text-white">₹{totalFare}</span>
+            </div>
+
             <button
               onClick={onClose}
-              className="px-5 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer"
+              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold cursor-pointer w-full transition-colors"
             >
               Done
             </button>

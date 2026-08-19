@@ -2,7 +2,7 @@ import React from 'react';
 import {
   X,
   Car,
-  Bike,
+  Truck,
   ShieldCheck,
   UserCheck,
   Phone,
@@ -21,7 +21,7 @@ import {
 export default function VehicleDetailsModal({ vehicle, isOpen, onClose, onSelectForBooking }) {
   if (!isOpen || !vehicle) return null;
 
-  const VehicleIcon = vehicle.category?.includes('Bike') ? Bike : Car;
+  const VehicleIcon = vehicle.category?.includes('Truck') ? Truck : Car;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
@@ -58,12 +58,23 @@ export default function VehicleDetailsModal({ vehicle, isOpen, onClose, onSelect
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 text-xs">
           
-          {/* OWNER & PARTNER INFORMATION CARD */}
+          {/* HD Vehicle Image Showcase Banner */}
+          {vehicle.image && (
+            <div className="w-full h-48 sm:h-56 rounded-2xl overflow-hidden bg-slate-900 shadow-sm border border-slate-200 shrink-0">
+              <img
+                src={vehicle.image}
+                alt={vehicle.name}
+                className="w-full h-full object-cover object-center"
+              />
+            </div>
+          )}
+          
+          {/* OWNER INFORMATION CARD */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50/70 p-5 rounded-2xl border border-blue-200/80 space-y-3">
             <div className="flex items-center justify-between border-b border-blue-200/60 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm">
                 <UserCheck className="w-5 h-5 text-blue-600" />
-                <span>Vehicle Owner & Partner Information</span>
+                <span>Owner Information</span>
               </div>
               <span className="flex items-center gap-1 bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-amber-300">
                 <Star className="w-3 h-3 text-amber-600 fill-amber-500" />
@@ -73,9 +84,9 @@ export default function VehicleDetailsModal({ vehicle, isOpen, onClose, onSelect
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px] block mb-0.5">Owner / Fleet Name</span>
-                <strong className="text-slate-900 text-sm font-extrabold block">{vehicle.ownerName || 'Kovai Regional Fleet Partner'}</strong>
-                <span className="text-emerald-700 font-semibold text-[11px]">RTO Verified Owner</span>
+                <span className="text-slate-400 font-bold uppercase text-[10px] block mb-0.5">Owner Name</span>
+                <strong className="text-slate-900 text-xs sm:text-sm font-extrabold block break-words leading-snug">{vehicle.ownerName || 'Vehicle Owner'}</strong>
+                <span className="text-emerald-700 font-semibold text-[11px]">Verified Owner</span>
               </div>
 
               <div>
@@ -113,39 +124,39 @@ export default function VehicleDetailsModal({ vehicle, isOpen, onClose, onSelect
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Registration No</span>
-                <strong className="text-slate-900 text-xs font-black">{vehicle.registrationNo || 'TN-37-REG'}</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">1. Vehicle Name / Model</span>
+                <strong className="text-slate-900 text-xs font-black block truncate">{vehicle.name}</strong>
+                <span className="text-[10px] font-bold text-blue-600">{vehicle.modelYear}</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Model & Color</span>
-                <strong className="text-slate-900 text-xs font-extrabold">{vehicle.modelYear || '2024'} ({vehicle.color || 'White'})</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">2. Vehicle Type / Category</span>
+                <strong className="text-blue-700 text-xs font-black block">{vehicle.category}</strong>
+                <span className="text-[10px] text-slate-500 font-medium">₹{vehicle.price}/km Fixed Fare</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Rate Per KM</span>
-                <strong className="text-blue-600 text-xs font-black">₹{vehicle.price} / km</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">3. Registration Number</span>
+                <strong className="text-slate-900 text-xs font-black block">{vehicle.registrationNo}</strong>
+                <span className="text-[10px] text-emerald-600 font-bold">Verified RC</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase flex items-center gap-1">
-                  <Users className="w-3 h-3 text-blue-600" /> Capacity
-                </span>
-                <strong className="text-slate-900 text-xs font-extrabold">{vehicle.seats} Seats</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">4. Load Capacity</span>
+                <strong className="text-emerald-700 text-xs font-black block">{vehicle.loadCapacity}</strong>
+                <span className="text-[10px] text-slate-500 font-medium">{vehicle.seats} Cabin Seats</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase flex items-center gap-1">
-                  <Fuel className="w-3 h-3 text-emerald-600" /> Fuel / Engine
-                </span>
-                <strong className="text-slate-900 text-xs font-extrabold">{vehicle.fuel}</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">5. Body Dimensions</span>
+                <strong className="text-blue-700 text-xs font-black block">{vehicle.bodyDimensions}</strong>
+                <span className="text-[10px] text-slate-500 font-medium">Cargo Deck</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase flex items-center gap-1">
-                  <Settings className="w-3 h-3 text-purple-600" /> Transmission
-                </span>
-                <strong className="text-slate-900 text-xs font-extrabold">{vehicle.transmission}</strong>
+                <span className="text-slate-400 text-[10px] font-extrabold block uppercase">6. Fuel Type & Engine</span>
+                <strong className="text-slate-900 text-xs font-extrabold block truncate">{vehicle.fuel}</strong>
+                <span className="text-[10px] text-slate-500 font-medium">{vehicle.transmission}</span>
               </div>
             </div>
           </div>

@@ -6,34 +6,67 @@ import {
   Star,
   Users,
   Fuel,
-  ShieldCheck,
   Zap,
-  CheckCircle2,
   ChevronRight,
-  ChevronLeft,
   Sparkles,
   Car,
-  Bike,
   Truck,
-  Clock,
   ArrowRight,
-  DollarSign,
-  ThumbsUp
+  Check
 } from 'lucide-react';
-import { FLEET_DATA, CATEGORIES, CITIES, calculateDistance } from '../data/fleetData';
-import ReservationModal from '../components/ReservationModal';
-import VehicleDetailsModal from '../components/VehicleDetailsModal';
+import { FLEET_DATA, CATEGORIES, CITIES, calculateDistance } from '../data/vehiclesData';
+import ServicesSection from '../components/ServicesSection';
+import ReviewsSection from '../components/ReviewsSection';
+
+// SCROLL TO ZOOM IN CARD ANIMATION WRAPPER
+function ScrollZoomCard({ children, index }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = React.useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+
+    const currentElem = cardRef.current;
+    if (currentElem) {
+      observer.observe(currentElem);
+    }
+
+    return () => {
+      if (currentElem) {
+        observer.unobserve(currentElem);
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        transitionDelay: `${(index % 3) * 120}ms`
+      }}
+      className={`transition-all duration-700 ease-out transform ${
+        isVisible
+          ? 'opacity-100 scale-100 translate-y-0'
+          : 'opacity-0 scale-75 translate-y-12'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails, onNavigateToLogin }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [pickupCity, setPickupCity] = useState('');
   const [destinationCity, setDestinationCity] = useState('');
-  const [activeVehicle, setActiveVehicle] = useState(null);
-
-  // Vehicle Details Modal State
-  const [detailsVehicle, setDetailsVehicle] = useState(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const routeDistance = useMemo(() => calculateDistance(pickupCity, destinationCity), [pickupCity, destinationCity]);
 
@@ -49,8 +82,7 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
   }, [selectedCategory, searchQuery]);
 
   const getCategoryIcon = (category) => {
-    if (category.includes('2-Wheeler') || category.includes('Bike')) return Bike;
-    if (category.includes('3-Wheeler') || category.includes('Auto')) return Bike;
+    if (category === 'All') return null;
     if (category.includes('Commercial') || category.includes('Truck')) return Truck;
     return Car;
   };
@@ -63,8 +95,8 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
   const handleReserveVehicle = (vehicle) => {
     if (onSelectVehicleForBooking) {
       onSelectVehicleForBooking(vehicle, pickupCity, destinationCity);
-    } else {
-      setActiveVehicle(vehicle);
+    } else if (onNavigateToLogin) {
+      onNavigateToLogin();
     }
   };
 
@@ -72,27 +104,27 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
   const HERO_SLIDES = [
     {
       id: 1,
-      image: '/hero_slide_1.jpg',
-      badge: '#1 Rated Local Vehicle Rental Network',
-      title: 'Rent Premium Vehicles',
-      highlightTitle: 'For Travel & Goods Carrying',
-      description: 'Book verified 4-wheeler cars and commercial goods trucks for instant local travel & logistics with transparent per-KM pricing & RTO compliance.'
+      image: '/trucks/hero_slide_1.jpg',
+      badge: '#1 Rated Goods Transport Fleet',
+      title: 'Tata Ace & Mini Trucks',
+      highlightTitle: 'Fast Local & Intercity Freight',
+      description: 'Book verified Tata Ace (Chota Hathi), Bolero Pickups, and heavy container trucks for instant local & intercity goods transport with transparent ₹10/km - ₹12/km pricing & full verification.'
     },
     {
       id: 2,
-      image: '/hero_slide_2.jpg',
-      badge: '500+ Verified Fleet Vehicles',
-      title: 'Inspected & Sanitized',
-      highlightTitle: 'Cars & Commercial Trucks Available',
-      description: 'Clean, sanitized, and fully insured 4-wheeler cars and heavy cargo trucks available across Coimbatore, Erode, Tiruppur, Salem, Ooty, and surrounding hubs.'
+      image: '/trucks/hero_slide_2.jpg',
+      badge: '500+ Inspected Goods Carrying Trucks',
+      title: 'Eicher & Heavy Cargo Containers',
+      highlightTitle: 'Heavy Freight & Industrial Logistics',
+      description: 'Inspected 1.5 Ton to 5 Ton heavy cargo trucks available across Coimbatore, Erode, Tiruppur, Salem, Ooty, and surrounding industrial hubs.'
     },
     {
       id: 3,
-      image: '/hero_slide_3.jpg',
-      badge: 'Transparent Per-KM Rates',
-      title: 'Instant Booking & Pickup',
-      highlightTitle: '₹12/km Cars • ₹15/km Goods Trucks',
-      description: 'Zero hidden surge pricing. Calculate exact route distance and book with 2-step mobile OTP verification.'
+      image: '/trucks/hero_slide_3.jpg',
+      badge: 'Fixed ₹10/km Medium • ₹12/km Heavy Rates',
+      title: 'Mahindra Bolero Pickup Fleet',
+      highlightTitle: 'Zero Hidden Charges • Pay at Destination',
+      description: 'Calculate exact route distance between cities and book verified cargo transport with 2-step mobile OTP verification.'
     }
   ];
 
@@ -110,38 +142,33 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
   return (
     <main className="flex-1 bg-slate-50 text-slate-800 font-sans">
       
-      {/* 1. HERO SLIDER CAROUSEL SECTION WITH 3 IMAGES & MICRO-ANIMATIONS */}
-      <section className="relative pt-12 pb-24 overflow-hidden bg-slate-900 text-white border-b border-slate-200/80 min-h-[580px] flex items-center">
+      {/* 1. HERO SLIDER CAROUSEL SECTION */}
+      <section className="relative pt-12 pb-24 overflow-hidden bg-slate-900 text-white border-b border-slate-200/80 min-h-[580px] flex items-center justify-center">
         
-        {/* HERO CAROUSEL BACKGROUND IMAGES (UNIFORM HEIGHT & FADE TRANSITION) */}
+        {/* HERO CAROUSEL BACKGROUND IMAGES */}
         {HERO_SLIDES.map((slide, idx) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 z-0 transition-opacity duration-1000 ${
+            className={`absolute inset-0 z-0 transition-opacity duration-1000 flex items-center justify-center ${
               idx === currentSlideIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
             <img
               src={slide.image}
               alt={slide.title}
-              className={`w-full h-full object-cover filter brightness-105 contrast-115 saturate-[1.1] transition-transform duration-1000 ${
-                slide.id === 1 ? 'object-[center_40%] scale-110' : 'object-center scale-105'
-              }`}
+              className="w-full h-full object-cover object-center max-sm:object-[center_center] filter brightness-105 contrast-115 saturate-[1.1] transition-transform duration-1000 scale-105"
             />
-            {/* Crystal Clear Subtle Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/50 via-slate-900/25 to-slate-950/35"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-slate-900/40 to-slate-950/50"></div>
           </div>
         ))}
 
-        {/* Soft Decorative Ambient Circles */}
+        {/* Ambient Glow */}
         <div className="absolute top-10 left-10 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none animate-float"></div>
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-float" style={{ animationDelay: '2s' }}></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-6 w-full">
-          {/* Active Slide Content - Normal Text Layout (No Card Box) */}
-          <div key={activeSlide.id} className="max-w-3xl space-y-6 animate-slide-up">
+          <div key={activeSlide.id} className="max-w-3xl space-y-6 animate-slide-up text-center sm:text-left mx-auto sm:mx-0 flex flex-col items-center sm:items-start">
             
-            {/* Floating Shimmer Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-blue-200/90 text-blue-700 text-xs font-black shadow-md shadow-blue-500/5 relative overflow-hidden">
               <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
               <span>{activeSlide.badge}</span>
@@ -159,31 +186,26 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
               {activeSlide.description}
             </p>
 
-            {/* HERO ACTION BUTTONS */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 pt-2">
               <button
-                onClick={() => onNavigateToLogin && onNavigateToLogin()}
+                onClick={() => onSelectVehicleForBooking ? onSelectVehicleForBooking(FLEET_DATA[0], pickupCity, destinationCity) : (onNavigateToLogin && onNavigateToLogin())}
                 className="px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm shadow-lg shadow-blue-600/40 flex items-center gap-2 cursor-pointer hover:scale-105 transition-all duration-300"
               >
-                <Car className="w-5 h-5 text-blue-200" />
-                <span>Book a Ride</span>
+                <Truck className="w-5 h-5 text-blue-200" />
+                <span>Book Goods Truck</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
 
               <button
-                onClick={() => {
-                  const el = document.getElementById('fleet');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-8 py-4 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-black text-sm border border-white/40 backdrop-blur-md flex items-center gap-2 cursor-pointer hover:scale-105 transition-all duration-300"
+                onClick={handleSearchVehicles}
+                className="px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-black text-sm shadow-lg shadow-emerald-600/30 border border-emerald-400/40 backdrop-blur-md flex items-center gap-2 cursor-pointer hover:scale-105 transition-all duration-300"
               >
-                <Sparkles className="w-5 h-5 text-emerald-300" />
-                <span>Explore Fleet Directory</span>
+                <Sparkles className="w-5 h-5 text-emerald-200" />
+                <span>Drive and Earn</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Stats & Slide Indicators */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pt-6 border-t border-slate-700/80">
               <div className="grid grid-cols-3 gap-4 max-w-xl flex-1">
                 <div className="bg-slate-900/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-md text-center sm:text-left">
@@ -192,7 +214,7 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                 </div>
                 <div className="bg-slate-900/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-md text-center sm:text-left">
                   <h4 className="text-xl sm:text-2xl font-black text-emerald-400">100%</h4>
-                  <p className="text-xs text-slate-300 font-bold">RTO Verified</p>
+                  <p className="text-xs text-slate-300 font-bold">Verified Fleet</p>
                 </div>
                 <div className="bg-slate-900/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-md text-center sm:text-left">
                   <h4 className="text-xl sm:text-2xl font-black text-amber-400">4.9 ★</h4>
@@ -200,7 +222,6 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                 </div>
               </div>
 
-              {/* 3 SLIDE INDICATOR DOTS */}
               <div className="flex items-center gap-2 self-center">
                 {HERO_SLIDES.map((_, idx) => (
                   <button
@@ -219,21 +240,22 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
         </div>
       </section>
 
-      {/* 2. FLOATING ROUTE SEARCH ENGINE STRIP BELOW HERO */}
+      {/* 2. FLOATING ROUTE SEARCH ENGINE STRIP */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20">
         <div className="glass-card-light rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200/90 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/30">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/30 shrink-0">
                 <Navigation className="w-4 h-4" />
               </div>
-              <div>
-                <span className="text-sm font-black text-slate-900 block">Plan Your Route & Estimate Fares</span>
-                <span className="text-[11px] text-slate-500 font-medium">Select pickup & destination cities for live per-KM rates</span>
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 truncate sm:whitespace-normal">Plan Route & Live Rates</h3>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium leading-tight">Select pickup & destination cities for live per-KM fare estimate</p>
               </div>
             </div>
-            <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full border border-emerald-300 animate-pulse">
-              Live Rates
+            <span className="text-[10px] sm:text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300 animate-pulse shrink-0 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Live Rates</span>
             </span>
           </div>
 
@@ -242,32 +264,42 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
               <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-blue-600" /> Pickup Location *
               </label>
-              <select
-                value={pickupCity}
-                onChange={(e) => setPickupCity(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-blue-600 cursor-pointer shadow-xs"
-              >
-                <option value="">Select Pickup City / Hub</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="pickup_cities_list"
+                  value={pickupCity}
+                  onChange={(e) => setPickupCity(e.target.value)}
+                  placeholder="Type or select pickup location..."
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-blue-600 cursor-text shadow-xs placeholder:text-slate-400 placeholder:font-medium text-xs sm:text-sm"
+                />
+                <datalist id="pickup_cities_list">
+                  {CITIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <Navigation className="w-3.5 h-3.5 text-emerald-600" /> Destination Location *
               </label>
-              <select
-                value={destinationCity}
-                onChange={(e) => setDestinationCity(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-blue-600 cursor-pointer shadow-xs"
-              >
-                <option value="">Select Destination City</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="destination_cities_list"
+                  value={destinationCity}
+                  onChange={(e) => setDestinationCity(e.target.value)}
+                  placeholder="Type or select destination location..."
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 cursor-text shadow-xs placeholder:text-slate-400 placeholder:font-medium text-xs sm:text-sm"
+                />
+                <datalist id="destination_cities_list">
+                  {CITIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
             </div>
 
             <div>
@@ -276,21 +308,43 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                 className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02]"
               >
                 <Search className="w-4 h-4" />
-                <span>Search Available Fleet</span>
+                <span>Search Available Vehicles</span>
               </button>
             </div>
           </div>
 
-          {routeDistance > 0 && (
-            <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl space-y-1 text-slate-800 shadow-xs animate-fade-in">
-              <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-slate-600">Calculated Distance:</span>
-                <span className="text-blue-700 font-black text-base">{routeDistance} km</span>
+          {routeDistance > 0 ? (
+            <div className="p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-emerald-50 border border-blue-200 rounded-2xl space-y-2 text-slate-800 shadow-xs animate-fade-in">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+                <span className="text-slate-600 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Route Distance ({pickupCity} ➔ {destinationCity}):</span>
+                </span>
+                <span className="text-blue-700 font-black text-sm sm:text-base">{routeDistance} km</span>
               </div>
-              <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between border-t border-blue-200/60 pt-1">
-                <span>Estimated Fare (2W / 3W / 4W):</span>
-                <span className="text-emerald-700 font-black text-sm">₹{routeDistance * 8} - ₹{routeDistance * 12}</span>
+              <div className="text-[11px] font-bold text-slate-700 flex flex-wrap items-center justify-between gap-2 border-t border-blue-200/80 pt-2">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Live Estimated Route Fare:</span>
+                </span>
+                <span className="text-emerald-700 font-black text-sm sm:text-base bg-white px-2.5 py-0.5 rounded-lg border border-emerald-200 shadow-2xs">
+                  ₹{routeDistance * 10} - ₹{routeDistance * 12}
+                </span>
               </div>
+              <div className="text-[10px] font-semibold text-slate-500 flex flex-wrap items-center justify-between gap-1 pt-0.5">
+                <span>Rates: ₹10/km Medium • ₹12/km Heavy</span>
+                <span className="text-emerald-600 font-bold">Zero Midnight Surge</span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-blue-900">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>Live Rates: ₹10/km (Medium Vehicles) • ₹12/km (Heavy Cargo)</span>
+              </span>
+              <span className="text-[10px] text-blue-700 bg-white px-2 py-0.5 rounded font-extrabold border border-blue-200 shrink-0">
+                Select Pickup & Destination
+              </span>
             </div>
           )}
         </div>
@@ -335,7 +389,7 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
                     : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200/90'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                {Icon && <Icon className="w-4 h-4" />}
                 <span>{cat}</span>
               </button>
             );
@@ -344,315 +398,143 @@ export default function Home({ onSelectVehicleForBooking, onSelectVehicleDetails
 
         {/* Vehicle Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-          {filteredFleet.map((vehicle) => {
+          {filteredFleet.map((vehicle, idx) => {
             const Icon = getCategoryIcon(vehicle.category);
             return (
-              <div
-                key={vehicle.id}
-                className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden card-hover group flex flex-col justify-between shadow-md"
-              >
-                <div>
-                  {/* Card Header & Image (Or Category Banner if No Image) */}
-                  {vehicle.image ? (
-                    <div className="relative h-48 bg-slate-100 overflow-hidden">
+              <ScrollZoomCard key={vehicle.id} index={idx}>
+                <div
+                  className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden group flex flex-col justify-between shadow-md hover:shadow-lg hover:border-slate-300 transition-all duration-300 relative h-full"
+                >
+                  <div>
+                    <div className="relative h-60 w-full bg-slate-900 overflow-hidden">
                       <img
                         src={vehicle.image}
                         alt={vehicle.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500 ease-out opacity-95 group-hover:opacity-100"
                       />
-                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 text-[11px] font-black text-slate-900 flex items-center gap-1.5 shadow-xs">
-                        <Icon className="w-3.5 h-3.5 text-blue-600" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity duration-300"></div>
+
+                      {/* Category Pill */}
+                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/50 text-[11px] font-black text-slate-900 flex items-center gap-1.5 shadow-md">
+                        {Icon && <Icon className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300" />}
                         <span>{vehicle.category}</span>
                       </div>
 
-                      <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
+                      {/* Fare Rate Pill */}
+                      <div className="absolute top-3 right-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 text-white text-[11px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-lg shadow-emerald-600/30 group-hover:scale-105 transition-transform duration-300">
                         ₹{vehicle.price} / km
                       </div>
-                    </div>
-                  ) : (
-                    <div className="relative h-28 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-4 flex flex-col justify-between border-b border-slate-700/60">
-                      <div className="flex items-center justify-between">
-                        <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-black text-white flex items-center gap-1.5 shadow-xs">
-                          <Icon className="w-3.5 h-3.5 text-blue-400" />
-                          <span>{vehicle.category}</span>
-                        </div>
 
-                        <div className="bg-emerald-500 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
-                          ₹{vehicle.price} / km
-                        </div>
-                      </div>
-                      <div className="text-white font-black text-base flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-300 border border-blue-400/30">
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <span>{vehicle.name}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Vehicle Info Specs */}
-                  <div className="p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">{vehicle.name}</h3>
-                      <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
-                        <Star className="w-3.5 h-3.5 fill-amber-400" />
+                      {/* Bottom Floating Rating Badge */}
+                      <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-amber-400 text-xs font-black flex items-center gap-1 border border-white/20">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 animate-pulse" />
                         <span>{vehicle.rating}</span>
                       </div>
                     </div>
 
-                    {/* Technical Pills */}
-                    <div className="grid grid-cols-3 gap-2 text-[11px]">
-                      <div className="bg-slate-100/80 p-2 rounded-xl border border-slate-200/80 text-slate-700 flex items-center gap-1.5 font-semibold">
-                        <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                        <span>{vehicle.seats} Seats</span>
+                    <div className="p-5 space-y-3.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-base font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">
+                            {vehicle.name}
+                          </h3>
+                          <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0">
+                            {vehicle.modelYear}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-500 block mt-0.5">
+                          Category / Type: <strong className="text-blue-700">{vehicle.category}</strong>
+                        </span>
                       </div>
-                      <div className="bg-slate-100/80 p-2 rounded-xl border border-slate-200/80 text-slate-700 flex items-center gap-1.5 font-semibold">
-                        <Fuel className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{vehicle.fuel}</span>
-                      </div>
-                      <div className="bg-slate-100/80 p-2 rounded-xl border border-slate-200/80 text-slate-700 flex items-center gap-1.5 font-semibold">
-                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">{vehicle.transmission}</span>
-                      </div>
-                    </div>
 
-                    {/* Owner & Legal Badges */}
-                    <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                      <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                        <span>Reg No:</span>
-                        <strong className="text-slate-900 font-extrabold uppercase">{vehicle.registrationNo || 'TN-37-REG'}</strong>
+                      {/* 6 Key Specifications Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Reg Number</span>
+                          <strong className="text-slate-900 font-extrabold block text-[11px] truncate">{vehicle.registrationNo}</strong>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Load Capacity</span>
+                          <strong className="text-emerald-700 font-extrabold block text-[11px] truncate">{vehicle.loadCapacity}</strong>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Body Dimensions</span>
+                          <strong className="text-blue-700 font-extrabold block text-[11px] truncate">{vehicle.bodyDimensions}</strong>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Fuel Type</span>
+                          <strong className="text-slate-800 font-bold block text-[11px] truncate">{vehicle.fuel}</strong>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                        <span>Verified Partner:</span>
-                        <strong className="text-emerald-700 font-bold">{vehicle.ownerName || 'kuiky.in Fleet Partner'}</strong>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2">
+                        <span>Owner: <strong className="text-slate-800 font-semibold">{vehicle.ownerName}</strong></span>
                       </div>
                     </div>
                   </div>
+
+                  <div className="p-6 pt-0 grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={() => {
+                        if (onSelectVehicleDetails) {
+                          onSelectVehicleDetails(vehicle);
+                        }
+                      }}
+                      className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl cursor-pointer hover:scale-[1.02] active:scale-95 transition-all duration-300"
+                    >
+                      View Details
+                    </button>
+
+                    <button
+                      onClick={() => handleReserveVehicle(vehicle)}
+                      className="py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-md shadow-blue-600/30 hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-1.5"
+                    >
+                      <span>Book Now</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
                 </div>
-
-                {/* Card Action CTAs */}
-                <div className="p-6 pt-0 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      if (onSelectVehicleDetails) {
-                        onSelectVehicleDetails(vehicle);
-                      } else {
-                        setDetailsVehicle(vehicle);
-                        setIsDetailsModalOpen(true);
-                      }
-                    }}
-                    className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                  >
-                    View Details
-                  </button>
-
-                  <button
-                    onClick={() => handleReserveVehicle(vehicle)}
-                    className="py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-md transition-colors"
-                  >
-                    Book Ride
-                  </button>
-                </div>
-
-              </div>
+              </ScrollZoomCard>
             );
           })}
         </div>
       </section>
 
-      {/* 4. WHY CHOOSE KUIKY.IN SERVICES SECTION */}
-      <section id="services" className="py-16 bg-white border-t border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-black uppercase text-blue-600 tracking-wider">Professional Guarantee</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">Why Riders Trust kuiky.in Services</h2>
-            <p className="text-xs text-slate-500 font-medium">Transparent per-KM rates, RTO verified documentation, and instant SMS OTP verification.</p>
-          </div>
+      {/* 4. SERVICES SECTION */}
+      <ServicesSection />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
-            
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-3 card-hover">
-              <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-black text-slate-900">100% RTO Verified</h3>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                All listed 2-wheelers, 3-wheelers, and cars undergo strict DL, RC, and Insurance document verification.
-              </p>
-            </div>
+      {/* 5. REVIEWS SECTION */}
+      <ReviewsSection />
 
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-3 card-hover">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-black text-slate-900">Fixed Per-KM Rates</h3>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                Clear per-kilometer pricing (₹8/km for 2W, ₹10/km for 3W, ₹12/km for 4W) with zero hidden surge charges.
-              </p>
-            </div>
-
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-3 card-hover">
-              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
-                <Clock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-black text-slate-900">Instant SMS OTP</h3>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                Quick 2-step mobile OTP verification for customer sign-in and booking confirmation.
-              </p>
-            </div>
-
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-3 card-hover">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
-                <ThumbsUp className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-black text-slate-900">24/7 Roadside Support</h3>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                Dedicated customer assistance and breakdown support across all destination hubs.
-              </p>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* 5. VERIFIED REVIEWS & TESTIMONIALS SECTION */}
-      <section id="reviews" className="py-16 bg-slate-100/70 border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-black uppercase text-amber-600 tracking-wider">Verified Customer Feedback</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">What Our Riders Say</h2>
-            <p className="text-xs text-slate-500 font-medium">Rated 4.9 / 5 stars by over 1,200+ local commuters across Tamil Nadu.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/90 space-y-4 shadow-sm card-hover">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-amber-400">
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                </div>
-                <span className="text-[11px] font-extrabold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200">Verified Ride</span>
-              </div>
-              <p className="text-xs text-slate-600 font-medium leading-relaxed italic">
-                "Booked a Royal Enfield Classic 350 for a day trip to Ooty. The bike condition was brand new, RC and insurance papers were complete. Highly recommend kuiky.in!"
-              </p>
-              <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center">
-                  RA
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-slate-900">R. Arunkumar</h4>
-                  <span className="text-[11px] text-slate-400 font-semibold">Peelamedu, Coimbatore</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/90 space-y-4 shadow-sm card-hover">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-amber-400">
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                </div>
-                <span className="text-[11px] font-extrabold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200">Verified Ride</span>
-              </div>
-              <p className="text-xs text-slate-600 font-medium leading-relaxed italic">
-                "Needed a 7-seater Innova Crysta for a family trip from Erode to Salem. Transparent ₹12/km rate with zero surge pricing. Vehicle arrived 15 mins early!"
-              </p>
-              <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
-                  SK
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-slate-900">S. Kausalya</h4>
-                  <span className="text-[11px] text-slate-400 font-semibold">Collectorate Hub, Erode</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/90 space-y-4 shadow-sm card-hover">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-amber-400">
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  <Star className="w-4 h-4 fill-amber-400" />
-                </div>
-                <span className="text-[11px] font-extrabold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200">Verified Ride</span>
-              </div>
-              <p className="text-xs text-slate-600 font-medium leading-relaxed italic">
-                "Booked a Bajaj RE Auto for local shopping in Tiruppur. Quick SMS OTP sign in and driver was extremely polite. Best local rental service!"
-              </p>
-              <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center">
-                  MN
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-slate-900">M. Narendran</h4>
-                  <span className="text-[11px] text-slate-400 font-semibold">Avinashi Road, Tiruppur</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* 5. INSTANT VEHICLE BOOKING BANNER */}
+      {/* 6. INSTANT VEHICLE BOOKING BANNER */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-8 sm:p-12 text-white shadow-2xl shadow-blue-600/20 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-1.5 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">
-                <Car className="w-3.5 h-3.5 text-white" />
-                <span>Instant Vehicle Booking & Rental Program</span>
+                <Truck className="w-3.5 h-3.5 text-white" />
+                <span>Instant Freight & Goods Logistics</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-black text-white">Need a Bike, Auto, or Car Today?</h3>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">Need a Goods Transport Truck Today?</h3>
               <p className="text-blue-50 text-xs sm:text-sm font-medium leading-relaxed">
-                Book verified vehicles with kuiky.in for transparent per-KM rates, instant SMS verification, and guaranteed pickup across Tamil Nadu.
+                Book verified heavy cargo trucks with kuiky.in for transparent ₹12/km rates, instant SMS verification, and guaranteed pickup.
               </p>
             </div>
 
             <button
-              onClick={() => onNavigateToLogin && onNavigateToLogin()}
+              onClick={() => onSelectVehicleForBooking ? onSelectVehicleForBooking(FLEET_DATA[0], pickupCity, destinationCity) : (onNavigateToLogin && onNavigateToLogin())}
               className="px-8 py-4 bg-white text-blue-900 hover:bg-slate-100 font-black text-sm rounded-2xl cursor-pointer shadow-lg shrink-0 flex items-center gap-2 transition-transform hover:scale-105"
             >
-              <span>Sign In & Book Ride</span>
+              <span>Book Now</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </section>
-
-      {/* Modals */}
-      {activeVehicle && (
-        <ReservationModal
-          vehicle={activeVehicle}
-          initialPickup={pickupCity}
-          initialDestination={destinationCity}
-          onClose={() => setActiveVehicle(null)}
-        />
-      )}
-
-      {isDetailsModalOpen && detailsVehicle && (
-        <VehicleDetailsModal
-          vehicle={detailsVehicle}
-          onClose={() => setIsDetailsModalOpen(false)}
-          onStartBooking={() => {
-            setIsDetailsModalOpen(false);
-            handleReserveVehicle(detailsVehicle);
-          }}
-        />
-      )}
 
     </main>
   );
