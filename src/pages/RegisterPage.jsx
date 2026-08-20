@@ -68,9 +68,31 @@ export default function RegisterPage({ isPendingBooking, onRegisterSuccess, onNa
     const userObj = {
       name: regName || 'Valued Customer',
       phone: regPhone || '+91 98421 00000',
-      email: regEmail || ''
+      email: regEmail || '',
+      password: regPassword || '123456'
     };
-    setSuccessMessage('Mobile OTP Verified! Account registered successfully.');
+
+    // Store user login details and registered user record into LocalStorage
+    try {
+      // 1. Save remembered login details
+      localStorage.setItem('kuiky_login_details', JSON.stringify({
+        name: userObj.name,
+        phone: userObj.phone,
+        email: userObj.email,
+        registeredAt: new Date().toISOString()
+      }));
+      localStorage.setItem('kuiky_remembered_phone', userObj.phone);
+
+      // 2. Add to registered users list in LocalStorage
+      const registeredUsers = JSON.parse(localStorage.getItem('kuiky_registered_users') || '[]');
+      const filtered = registeredUsers.filter((u) => u.phone.replace(/\D/g, '') !== userObj.phone.replace(/\D/g, ''));
+      filtered.push(userObj);
+      localStorage.setItem('kuiky_registered_users', JSON.stringify(filtered));
+    } catch (err) {
+      console.error('Failed to store registered user in localStorage:', err);
+    }
+
+    setSuccessMessage('Mobile OTP Verified! Account registered & login details stored in local storage.');
     setTimeout(() => {
       onRegisterSuccess(userObj);
     }, 800);

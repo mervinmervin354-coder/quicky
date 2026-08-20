@@ -41,15 +41,32 @@ export default function SettingsPage({ currentUser, onUpdateUser, onLogout, onBa
       return;
     }
     setSaveError('');
+
+    const updatedUser = {
+      ...currentUser,
+      name: fullName,
+      phone: phone,
+      email: email
+    };
+
     if (onUpdateUser) {
-      onUpdateUser({
-        ...currentUser,
+      onUpdateUser(updatedUser);
+    }
+
+    try {
+      localStorage.setItem('kuiky_current_user', JSON.stringify(updatedUser));
+      localStorage.setItem('kuiky_login_details', JSON.stringify({
         name: fullName,
         phone: phone,
-        email: email
-      });
+        email: email,
+        updatedAt: new Date().toISOString()
+      }));
+      localStorage.setItem('kuiky_remembered_phone', phone);
+    } catch (err) {
+      console.error('Failed to sync updated profile to localStorage:', err);
     }
-    setSaveSuccess('Profile & Account Settings updated successfully!');
+
+    setSaveSuccess('Profile & Account Settings updated & stored in local storage!');
     setTimeout(() => setSaveSuccess(''), 4000);
   };
 

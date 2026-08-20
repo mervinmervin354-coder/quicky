@@ -20,9 +20,44 @@ import {
 } from 'lucide-react';
 import KuikyBrandIcon from '../components/KuikyBrandIcon';
 
+const DEFAULT_DEMO_USERS = [
+  {
+    name: 'Ramesh Kumar',
+    phone: '9842100000',
+    email: 'ramesh@example.com',
+    password: 'password123'
+  },
+  {
+    name: 'Priya Sharma',
+    phone: '9876543210',
+    email: 'priya@example.com',
+    password: '123456'
+  }
+];
+
+const getRegisteredUsers = () => {
+  try {
+    const stored = localStorage.getItem('kuiky_registered_users');
+    if (!stored) {
+      localStorage.setItem('kuiky_registered_users', JSON.stringify(DEFAULT_DEMO_USERS));
+      return DEFAULT_DEMO_USERS;
+    }
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem('kuiky_registered_users', JSON.stringify(DEFAULT_DEMO_USERS));
+      return DEFAULT_DEMO_USERS;
+    }
+    return parsed;
+  } catch (err) {
+    return DEFAULT_DEMO_USERS;
+  }
+};
+
 export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigateToRegister, onBackToHome }) {
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'otp'
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [hasSavedDetails, setHasSavedDetails] = useState(false);
 
   // Login Form States
   const [loginPhone, setLoginPhone] = useState('');
@@ -38,6 +73,28 @@ export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigate
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Automatically restore stored login details from LocalStorage on mount
+  useEffect(() => {
+    try {
+      const savedDetails = localStorage.getItem('kuiky_login_details');
+      const savedPhone = localStorage.getItem('kuiky_remembered_phone');
+      let phoneToUse = savedPhone || '';
+
+      if (!phoneToUse && savedDetails) {
+        const parsed = JSON.parse(savedDetails);
+        phoneToUse = parsed?.phone || '';
+      }
+
+      if (phoneToUse) {
+        setLoginPhone(phoneToUse);
+        setOtpPhone(phoneToUse);
+        setHasSavedDetails(true);
+      }
+    } catch (err) {
+      console.error('Error loading saved login details from localStorage:', err);
+    }
+  }, []);
+
   // Automatically strip non-digit characters if browser autofill forces username text into phone fields
   useEffect(() => {
     if (loginPhone && /\D/.test(loginPhone)) {
@@ -51,18 +108,81 @@ export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigate
     }
   }, [otpPhone]);
 
+  const handleClearSavedDetails = () => {
+    try {
+      localStorage.removeItem('kuiky_login_details');
+      localStorage.removeItem('kuiky_remembered_phone');
+      setHasSavedDetails(false);
+      setLoginPhone('');
+      setOtpPhone('');
+      setErrorMessage('Saved login details cleared from local storage.');
+      setTimeout(() => setErrorMessage(''), 3500);
+    } catch (err) {
+      console.error('Failed to clear saved login details:', err);
+    }
+  };
+
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    if (!loginPhone || loginPhone.replace(/\D/g, '').length < 10) {
+    const cleanPhone = loginPhone.replace(/\D/g, '');
+
+    if (!cleanPhone || cleanPhone.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number.');
       return;
     }
+
+    if (!password) {
+      setErrorMessage('Please enter your account password.');
+      return;
+    }
+
     setErrorMessage('');
+
+    // 1. Fetch registered users from LocalStorage and verify user exists
+    const registeredUsers = getRegisteredUsers();
+    const foundUser = registeredUsers.find(
+      (u) => u.phone.replace(/\D/g, '') === cleanPhone
+    );
+
+    if (!foundUser) {
+      setErrorMessage('Account not found! Only registered users can sign in. Please register an account first.');
+      return;
+    }
+
+    // 2. Validate password matches registered user password
+    if (foundUser.password && foundUser.password !== password) {
+      setErrorMessage('Incorrect password! Please enter the correct password for your account.');
+      return;
+    }
+
+    // Save login details to LocalStorage if "Remember me" is selected
+    if (rememberMe) {
+      try {
+        const loginData = {
+          phone: cleanPhone,
+          lastLoginTime: new Date().toISOString()
+        };
+        localStorage.setItem('kuiky_login_details', JSON.stringify(loginData));
+        localStorage.setItem('kuiky_remembered_phone', cleanPhone);
+      } catch (err) {
+        console.error('Failed to save login details to localStorage:', err);
+      }
+    } else {
+      try {
+        localStorage.removeItem('kuiky_login_details');
+        localStorage.removeItem('kuiky_remembered_phone');
+      } catch (err) {
+        console.error('Failed to clear login details from localStorage:', err);
+      }
+    }
+
     const userObj = {
-      name: '',
-      phone: loginPhone ? loginPhone : '+91 98421 00000'
+      name: foundUser.name || 'Valued Customer',
+      phone: foundUser.phone || cleanPhone,
+      email: foundUser.email || ''
     };
-    setSuccessMessage('Authentication successful! Redirecting...');
+
+    setSuccessMessage(`Login successful! Welcome back, ${userObj.name}. Redirecting...`);
     setTimeout(() => {
       onLoginSuccess(userObj);
     }, 800);
@@ -70,10 +190,23 @@ export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigate
 
   const handleSendOtp = (e) => {
     e.preventDefault();
-    if (!otpPhone || otpPhone.replace(/\D/g, '').length < 10) {
+    const cleanPhone = otpPhone.replace(/\D/g, '');
+
+    if (!cleanPhone || cleanPhone.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number.');
       return;
     }
+
+    const registeredUsers = getRegisteredUsers();
+    const foundUser = registeredUsers.find(
+      (u) => u.phone.replace(/\D/g, '') === cleanPhone
+    );
+
+    if (!foundUser) {
+      setErrorMessage('Mobile number is not registered. Only registered users can sign in via OTP. Please register first.');
+      return;
+    }
+
     setErrorMessage('');
     const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedOtp(newOtp);
@@ -88,11 +221,38 @@ export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigate
       return;
     }
     setErrorMessage('');
+
+    const targetPhone = otpPhone.replace(/\D/g, '') || loginPhone.replace(/\D/g, '');
+    const registeredUsers = getRegisteredUsers();
+    const foundUser = registeredUsers.find(
+      (u) => u.phone.replace(/\D/g, '') === targetPhone
+    );
+
+    if (!foundUser) {
+      setErrorMessage('Account not found. Only registered users can sign in. Please register first.');
+      return;
+    }
+
+    if (rememberMe) {
+      try {
+        const loginData = {
+          phone: targetPhone,
+          lastLoginTime: new Date().toISOString()
+        };
+        localStorage.setItem('kuiky_login_details', JSON.stringify(loginData));
+        localStorage.setItem('kuiky_remembered_phone', targetPhone);
+      } catch (err) {
+        console.error('Failed to save login details to localStorage:', err);
+      }
+    }
+
     const userObj = {
-      name: 'Renter Customer',
-      phone: otpPhone || '+91 98421 00000'
+      name: foundUser.name || 'Valued Customer',
+      phone: foundUser.phone || targetPhone,
+      email: foundUser.email || ''
     };
-    setSuccessMessage('Mobile OTP Verified! Redirecting...');
+
+    setSuccessMessage(`Mobile OTP Verified! Welcome back, ${userObj.name}. Redirecting...`);
     setTimeout(() => {
       onLoginSuccess(userObj);
     }, 800);
@@ -257,8 +417,13 @@ export default function LoginPage({ isPendingBooking, onLoginSuccess, onNavigate
 
               <div className="flex items-center justify-between text-[11px]">
                 <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-semibold">
-                  <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                  <span>Remember me</span>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span>Remember login details (Local Storage)</span>
                 </label>
 
                 <button

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   MapPin,
   Navigation,
@@ -31,33 +31,51 @@ import { CITIES, calculateDistance, getPerKmRate } from '../data/vehiclesData';
 import RouteMap from '../components/RouteMap';
 
 export default function BookingPage({ vehicle, initialPickup = '', initialDestination = '', currentUser, onBookingComplete, onSelectVehicleDetails, onBackToHome }) {
-  const [pickupCity, setPickupCity] = useState(initialPickup || '');
-  const [destinationCity, setDestinationCity] = useState(initialDestination || '');
+  const [pickupCity, setPickupCity] = useState(() => initialPickup || sessionStorage.getItem('kuiky_booking_pickup') || '');
+  const [destinationCity, setDestinationCity] = useState(() => initialDestination || sessionStorage.getItem('kuiky_booking_destination') || '');
+
+  // Live real-time clock state updating every second
+  const [liveClock, setLiveClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveClock(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const minDate = useMemo(() => {
-    const today = new Date();
+    const today = liveClock;
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }, []);
+  }, [liveClock]);
 
-  const currentTime = useMemo(() => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
+  const liveTime24 = useMemo(() => {
+    const hours = String(liveClock.getHours()).padStart(2, '0');
+    const minutes = String(liveClock.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
-  }, []);
+  }, [liveClock]);
 
-  const defaultTime = useMemo(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 30);
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }, []);
+  const liveTime12 = useMemo(() => {
+    return liveClock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  }, [liveClock]);
 
   const [travelDate, setTravelDate] = useState(minDate);
-  const [travelTime, setTravelTime] = useState(defaultTime);
+  const [travelTime, setTravelTime] = useState(liveTime24);
+  const [isCustomTime, setIsCustomTime] = useState(false);
+
+  // Synchronize travelTime with liveTime24 in real-time unless user selected a custom time
+  useEffect(() => {
+    if (!isCustomTime) {
+      setTravelTime(liveTime24);
+    } else if (travelDate === minDate && travelTime < liveTime24) {
+      // Auto-correct to current live time if chosen custom time falls into the past
+      setTravelTime(liveTime24);
+      setIsCustomTime(false);
+    }
+  }, [liveTime24, isCustomTime, travelDate, minDate, travelTime]);
 
   // Customer form details
   const initialFullName = useMemo(() => {
@@ -128,8 +146,8 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
       setValidationError('Travel date cannot be a past date. Please select today or a future date.');
       return;
     }
-    if (travelDate === minDate && travelTime < currentTime) {
-      setValidationError(`Pickup time (${travelTime}) cannot be in the past for today's date (${minDate}). Earliest available pickup time is ${currentTime}.`);
+    if (travelDate === minDate && travelTime < liveTime24) {
+      setValidationError(`Pickup time (${travelTime}) cannot be in the past for today's date (${minDate}). Current live time is ${liveTime24}.`);
       return;
     }
     const cleanPhone = (phone || '').replace(/\D/g, '');
@@ -437,29 +455,49 @@ export default function BookingPage({ vehicle, initialPickup = '', initialDestin
                     />
                   </div>
 
-                  {/* Pickup Time */}
+                  {/* Preferred Pickup Time with Live Real-time Display */}
                   <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-blue-600" /> Preferred Pickup Time *
-                      </label>
-                      {travelDate === minDate && (
-                        <span className="text-[10px] text-blue-700 font-extrabold bg-blue-100/80 px-2 py-0.5 rounded border border-blue-200">
-                          Earliest: {currentTime}
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" /> Preferred Pickup Time *
+                    </label>
+                    
+                    {/* Select Time Input & Live Time Badge in Same Row */}
+                    <div className="flex items-center justify-between gap-2.5 pt-0.5">
+                      <input
+                        type="time"
+                        min={travelDate === minDate ? liveTime24 : undefined}
+                        value={travelTime}
+                        onChange={(e) => {
+                          setTravelTime(e.target.value);
+                          setIsCustomTime(true);
+                          setValidationError('');
+                        }}
+                        className="flex-1 bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                        required
+                      />
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-100 font-extrabold px-2.5 py-1.5 rounded-lg border border-emerald-300 shadow-2xs">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                          <span>Live: {liveTime12}</span>
                         </span>
-                      )}
+
+                        {isCustomTime && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomTime(false);
+                              setTravelTime(liveTime24);
+                              setValidationError('');
+                            }}
+                            className="text-[10px] text-blue-700 bg-blue-100 hover:bg-blue-200 font-extrabold px-2 py-1.5 rounded-lg border border-blue-300 transition-colors cursor-pointer"
+                            title="Reset input to current live time"
+                          >
+                            Sync Live
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="time"
-                      min={travelDate === minDate ? currentTime : undefined}
-                      value={travelTime}
-                      onChange={(e) => {
-                        setTravelTime(e.target.value);
-                        setValidationError('');
-                      }}
-                      className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
-                      required
-                    />
                   </div>
                 </div>
 

@@ -17,13 +17,45 @@ import {
   Settings,
   Sparkles,
   Info,
-  XCircle
+  XCircle,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import VehicleDetailsModal from '../components/VehicleDetailsModal';
 
 export default function MyBookingsPage({ bookings = [], currentUser, onSelectVehicleDetails, onCancelBooking, onBackToHome, onBookNewVehicle }) {
   const [selectedVehicleDetails, setSelectedVehicleDetails] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Cancellation Modal States
+  const [cancelModalBooking, setCancelModalBooking] = useState(null);
+  const [cancelReasonType, setCancelReasonType] = useState('Plans changed / Trip cancelled');
+  const [customCancelReason, setCustomCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccessMsg, setCancelSuccessMsg] = useState('');
+
+  const handleConfirmCancel = (e) => {
+    e.preventDefault();
+    if (!cancelModalBooking) return;
+
+    if (cancelReasonType === 'Other reason' && !customCancelReason.trim()) {
+      setCancelError('Please write your reason for cancellation in the text box below.');
+      return;
+    }
+
+    const finalReason = customCancelReason.trim()
+      ? `${cancelReasonType} - ${customCancelReason.trim()}`
+      : cancelReasonType;
+
+    if (onCancelBooking) {
+      onCancelBooking(cancelModalBooking.id, finalReason);
+    }
+
+    setCancelSuccessMsg(`Booking #${cancelModalBooking.id} has been cancelled successfully. Reason: "${finalReason}"`);
+    setCancelModalBooking(null);
+    setCancelError('');
+    setTimeout(() => setCancelSuccessMsg(''), 6000);
+  };
 
   return (
     <main className="flex-1 bg-slate-50 py-10">
@@ -55,6 +87,22 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
             View active bookings, full vehicle & owner information, and pay-at-destination receipts for {currentUser?.name || 'Customer'}.
           </p>
         </div>
+
+        {/* Cancellation Success Notification Banner */}
+        {cancelSuccessMsg && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs font-bold flex items-center justify-between gap-3 animate-fade-in shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{cancelSuccessMsg}</span>
+            </div>
+            <button
+              onClick={() => setCancelSuccessMsg('')}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Bookings List */}
         {bookings.length > 0 ? (
@@ -249,12 +297,10 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
 
                       <button
                         onClick={() => {
-                          if (window.confirm(`Are you sure you want to cancel booking ${booking.id} (${booking.vehicle?.name})?`)) {
-                            if (onCancelBooking) {
-                              onCancelBooking(booking.id);
-                              alert(`Booking ${booking.id} has been successfully cancelled.`);
-                            }
-                          }
+                          setCancelModalBooking(booking);
+                          setCancelReasonType('Plans changed / Trip cancelled');
+                          setCustomCancelReason('');
+                          setCancelError('');
                         }}
                         className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
                       >
@@ -286,6 +332,94 @@ export default function MyBookingsPage({ bookings = [], currentUser, onSelectVeh
           </div>
         )}
       </div>
+
+      {/* CANCELLATION REASON MODAL */}
+      {cancelModalBooking && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 relative animate-scale-up">
+            {/* Close Button */}
+            <button
+              onClick={() => setCancelModalBooking(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">Cancel Vehicle Reservation</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Booking ID: <strong className="text-blue-600 font-bold">{cancelModalBooking.id}</strong> ({cancelModalBooking.vehicle?.name})
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmCancel} className="space-y-4 text-xs">
+              {/* Select Default Cancellation Reason Dropdown */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">Select Reason for Cancellation *</label>
+                <select
+                  value={cancelReasonType}
+                  onChange={(e) => setCancelReasonType(e.target.value)}
+                  className="w-full px-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-red-500 cursor-pointer"
+                  required
+                >
+                  <option value="Plans changed / Trip cancelled">Plans changed / Trip cancelled</option>
+                  <option value="Booked by mistake / Duplicate booking">Booked by mistake / Duplicate booking</option>
+                  <option value="Vehicle or driver delayed">Vehicle or driver delayed</option>
+                  <option value="Found better price / Alternative transport">Found better price / Alternative transport</option>
+                  <option value="Change in travel date or pickup location">Change in travel date or pickup location</option>
+                  <option value="Other reason">Other reason</option>
+                </select>
+              </div>
+
+              {/* Custom Written Reason Input Area */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  Write Additional Details / Comments {cancelReasonType === 'Other reason' ? '*' : '(Optional)'}
+                </label>
+                <textarea
+                  rows={3}
+                  required={cancelReasonType === 'Other reason'}
+                  placeholder="Tell us more about why you are cancelling your booking..."
+                  value={customCancelReason}
+                  onChange={(e) => setCustomCancelReason(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              {cancelError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 font-bold text-xs">
+                  {cancelError}
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCancelModalBooking(null)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Keep My Booking
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Confirm Cancellation</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <VehicleDetailsModal
         vehicle={selectedVehicleDetails}
